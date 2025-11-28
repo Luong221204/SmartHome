@@ -6,8 +6,9 @@ import { GatewayModule } from './gateway/gateway.module';
 import { HomeController } from './home/home.controller';
 import { FirestoreService } from './home/firestore.service';
 import { HomeService } from './home/home.service';
+import { HomeModule } from './home/home.module';
 @Module({
-  imports: [GatewayModule],
+  imports: [GatewayModule, HomeModule],
   controllers: [EspController, HomeController],
   providers: [FirebaseService, FirestoreService, HomeService],
 })
