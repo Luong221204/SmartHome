@@ -5,6 +5,10 @@ import { HomeService } from './home.service';
 export class HomeController {
   constructor(private service: HomeService) {}
 
+  @Get()
+  getHello(): string {
+    return 'Hello from Home Controller';
+  }
   @Post('update-pump')
   async updatePump(
     @Body('status') status: boolean,
