@@ -6,8 +6,8 @@ export class HomeController {
   constructor(private service: HomeService) {}
 
   @Get()
-  getHello(): string {
-    return 'Hello from Home Controller';
+  getHello(): { success: boolean } {
+    return { success: true };
   }
   @Post('update-pump')
   async updatePump(
