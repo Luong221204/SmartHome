@@ -161,10 +161,10 @@ export class HomeController {
 
   @Post('update-password')
   async updatePassword(
-    @Body() { content },
+    @Body() { password },
   ): Promise<{ success: boolean; error?: string }> {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    return await this.service.updatePassword({ content });
+    return await this.service.updatePassword({ password });
   }
 
 }
