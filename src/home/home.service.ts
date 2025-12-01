@@ -261,4 +261,33 @@ export class HomeService {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return doc.data()?.status;
   }
+
+  async getPassword(): Promise<string> {
+    const doc = await this.firestoreService
+      .getCollection('home')
+      .doc('password')
+      .get();
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return doc.data()?.content;
+  }
+
+  async updatePassword(
+    data: any,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.gatewayService.server.emit('passwordUpdate', data);
+
+      await this.firestoreService
+        .getCollection('home')
+        .doc('password')
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        .update(data);
+
+      return { success: true };
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      return { success: false, error: error.message };
+    }
+  }
 }

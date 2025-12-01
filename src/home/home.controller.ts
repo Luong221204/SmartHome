@@ -152,4 +152,19 @@ export class HomeController {
       buzzer: await this.service.getBuzStatus(),
     };
   }
+
+  @Get('password')
+  async getPassword(): Promise<{ password: string }> {
+    const password = await this.service.getPassword();
+    return { password };
+  }
+
+  @Post('update-password')
+  async updatePassword(
+    @Body() { content },
+  ): Promise<{ success: boolean; error?: string }> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    return await this.service.updatePassword({ content });
+  }
+
 }

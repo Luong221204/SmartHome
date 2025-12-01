@@ -26,7 +26,6 @@ export class EspController {
     } else if (data.value === 'khói') {
       await this.homeService.updateFan({ status: true });
       await this.homeService.updateBuz({ status: true });
-
       await this.firebaseService.sendNotification(
         'esp32',
         'Cảnh báo thảm họa',
