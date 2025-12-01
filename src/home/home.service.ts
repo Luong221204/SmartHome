@@ -269,7 +269,7 @@ export class HomeService {
       .get();
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return doc.data()?.content;
+    return doc.data()?.password;
   }
 
   async updatePassword(
