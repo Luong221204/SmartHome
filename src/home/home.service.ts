@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { FirestoreService } from './firestore.service';
 import { MyGateway } from 'src/gateway/gateway';
+import { race } from 'rxjs';
 
 @Injectable()
 export class HomeService {
@@ -121,6 +122,7 @@ export class HomeService {
   async updateTemperatureHumidity(data: {
     temperature: number;
     humidity: number;
+    rain: boolean;
   }): Promise<void> {
     await this.firestoreService
       .getCollection('home')
@@ -129,6 +131,7 @@ export class HomeService {
     this.gatewayService.server.emit('temperatureHumidityUpdate', {
       temperature: data.temperature,
       humidity: data.humidity,
+      rain: data.rain,
     });
   }
 

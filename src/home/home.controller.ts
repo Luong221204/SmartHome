@@ -66,7 +66,7 @@ export class HomeController {
   @Post('temp-humid')
   // eslint-disable-next-line @typescript-eslint/require-await
   async receiveTempHumid(
-    @Body() data: { temperature: number; humidity: number },
+    @Body() data: { temperature: number; humidity: number; rain: boolean },
   ) {
     console.log('Nhận dữ liệu từ ESP32:', data);
     void this.service.updateTemperatureHumidity(data);
