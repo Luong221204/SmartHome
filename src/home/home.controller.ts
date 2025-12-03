@@ -6,8 +6,12 @@ export class HomeController {
   constructor(private service: HomeService) {}
 
   @Get()
-  getHello(): { success: boolean } {
+  getStatus(): { success: boolean } {
     return { success: true };
+  }
+  @Get('hello')
+  getHello(): Promise<{ success: boolean }> {
+    return this.service.getHello();
   }
   @Post('update-pump')
   async updatePump(
@@ -91,9 +95,20 @@ export class HomeController {
   }
 
   @Get('fs-status')
-  async getFsStatus(): Promise<{ status: boolean }> {
+  async getFsStatus(): Promise<{
+    status: boolean;
+    data: Array<{ level: number; time: string }>;
+    infor: string;
+    level: number;
+  }> {
     const status = await this.service.getFsStatus();
-    return { status };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    return {
+      status: status.status,
+      data: status.data,
+      infor: status.infor,
+      level: status.level,
+    };
   }
 
   @Post('update-rs')
@@ -104,9 +119,15 @@ export class HomeController {
   }
 
   @Get('Rs-status')
-  async getRsStatus(): Promise<{ status: boolean }> {
+  async getRsStatus(): Promise<{
+    status: boolean;
+    data: Array<{ level: number; time: string }>;
+    infor: string;
+    level: number;
+  }> {
     const status = await this.service.getRsStatus();
-    return { status };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    return { status: status.status, data: status.data, infor: status.infor,level: status.level };
   }
 
   @Post('update-gs')
@@ -117,9 +138,20 @@ export class HomeController {
   }
 
   @Get('gs-status')
-  async getGsStatus(): Promise<{ status: boolean }> {
+  async getGsStatus(): Promise<{
+    status: boolean;
+    data: Array<{ level: number; time: string }>;
+    infor: string;
+    level: number;
+  }> {
     const status = await this.service.getGsStatus();
-    return { status };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    return {
+      status: status.status,
+      data: status.data,
+      infor: status.infor,
+      level: status.level,
+    };
   }
 
   @Post('update-buz')
@@ -146,9 +178,9 @@ export class HomeController {
         .getLedStatus('living room')
         .then((r) => r.status),
       bed_led: await this.service.getLedStatus('bedroom').then((r) => r.status),
-      fs: await this.service.getFsStatus(),
-      rs: await this.service.getRsStatus(),
-      gs: await this.service.getGsStatus(),
+      fs: (await this.service.getFsStatus()).status,
+      rs: (await this.service.getRsStatus()).status,
+      gs: (await this.service.getGsStatus()).status,
       buzzer: await this.service.getBuzStatus(),
     };
   }
@@ -165,6 +197,48 @@ export class HomeController {
   ): Promise<{ success: boolean; error?: string }> {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     return await this.service.updatePassword({ password });
+  }
+
+  @Post('update-gs/level')
+  async updateGsLevel(
+    @Body('level') level: number,
+  ): Promise<{ success: boolean; error?: string }> {
+    return await this.service.updateGsLevel(level);
+  }
+
+  @Post('update-gs/data')
+  async updateGsData(
+    @Body('level') level: number,
+  ): Promise<{ success: boolean; error?: string }> {
+    return await this.service.updateGsData(level);
+  }
+
+  @Post('update-fs/level')
+  async updateFsLevel(
+    @Body('level') level: number,
+  ): Promise<{ success: boolean; error?: string }> {
+    return await this.service.updateFsLevel(level);
+  }
+
+  @Post('update-fs/data')
+  async updateFsData(
+    @Body('level') level: number,
+  ): Promise<{ success: boolean; error?: string }> {
+    return await this.service.updateFsData(level);
+  }
+
+  @Post('update-rs/level')
+  async updateRsLevel(
+    @Body('level') level: number,
+  ): Promise<{ success: boolean; error?: string }> {
+    return await this.service.updateRsLevel(level);
+  }
+
+  @Post('update-rs/data')
+  async updateRsData(
+    @Body('level') level: number,
+  ): Promise<{ success: boolean; error?: string }> {
+    return await this.service.updateRsData(level);
   }
 
 }

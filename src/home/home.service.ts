@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { FirestoreService } from './firestore.service';
 import { MyGateway } from 'src/gateway/gateway';
-import { race } from 'rxjs';
+import * as admin from 'firebase-admin';
 
 @Injectable()
 export class HomeService {
@@ -10,6 +10,29 @@ export class HomeService {
   constructor(firestoreService: FirestoreService, gatewayService: MyGateway) {
     this.firestoreService = firestoreService;
     this.gatewayService = gatewayService;
+  }
+
+  async getHello(): Promise<{ success: boolean }> {
+    try {
+      await this.firestoreService
+        .getCollection('home')
+        .doc('gs')
+        .update({ data: [] });
+
+      await this.firestoreService
+        .getCollection('home')
+        .doc('fs')
+        .update({ data: [] });
+
+      await this.firestoreService
+        .getCollection('home')
+        .doc('rs')
+        .update({ data: [] });
+      return { success: true };
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err) {
+      return { success: false };
+    }
   }
   //cập nhật trang thái bơm
   async updatePump(data: any): Promise<{ success: boolean; error?: string }> {
@@ -176,15 +199,87 @@ export class HomeService {
       return { success: false, error: error.message };
     }
   }
+  async updateFsData(
+    data: number,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const doc = await this.firestoreService
+        .getCollection('home')
+        .doc('fs')
+        .get();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const dataArray = doc.data()?.data || [];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (dataArray.length >= 30) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        dataArray.shift();
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      const now = new Date();
+      const hours = now.getHours();
+      const minutes = now.getMinutes().toString().padStart(2, '0'); // luôn 2 chữ số
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      dataArray.push({
+        level: data,
+        time: `${hours}:${minutes}`,
+      });
+      await this.firestoreService.getCollection('home').doc('fs').update({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        data: dataArray,
+      });
 
-  async getFsStatus(): Promise<boolean> {
+      return { success: true };
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      return { success: false, error: error.message };
+    }
+  }
+
+  async updateFsLevel(
+    level: number,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this.firestoreService.getCollection('home').doc('fs').update({
+        level: level,
+      });
+      const doc = await this.firestoreService
+        .getCollection('home')
+        .doc('fs')
+        .get();
+      console.log('doc', doc.data());
+      this.gatewayService.server.emit('fsStatusUpdate', doc.data());
+      return { success: true };
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      return { success: false, error: error.message };
+    }
+  }
+
+  async getFsStatus(): Promise<{
+    status: boolean;
+    data: Array<{ level: number; time: string }>;
+    infor: string;
+    level: number;
+
+  }> {
     const doc = await this.firestoreService
       .getCollection('home')
       .doc('fs')
       .get();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    console.log(doc.data()?.data.length);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return doc.data()?.status;
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      status: doc.data()?.status,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      data: doc.data()?.data,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      infor: doc.data()?.infor,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      level: doc.data()?.level,
+
+    };
   }
 
   async updateRs(data: any): Promise<{ success: boolean; error?: string }> {
@@ -203,25 +298,52 @@ export class HomeService {
       return { success: false, error: error.message };
     }
   }
-  async getRsStatus(): Promise<boolean> {
-    const doc = await this.firestoreService
-      .getCollection('home')
-      .doc('rs')
-      .get();
-
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return doc.data()?.status;
+  async updateRsLevel(
+    level: number,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this.firestoreService.getCollection('home').doc('rs').update({
+        level: level,
+      });
+      const doc = await this.firestoreService
+        .getCollection('home')
+        .doc('rs')
+        .get();
+      console.log('doc', doc.data());
+      this.gatewayService.server.emit('fsStatusUpdate', doc.data());
+      return { success: true };
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      return { success: false, error: error.message };
+    }
   }
 
-  async updateGs(data: any): Promise<{ success: boolean; error?: string }> {
+  async updateRsData(
+    data: number,
+  ): Promise<{ success: boolean; error?: string }> {
     try {
-      this.gatewayService.server.emit('gsStatusUpdate', data);
-
-      await this.firestoreService
+      const doc = await this.firestoreService
         .getCollection('home')
-        .doc('gs')
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        .update(data);
+        .doc('rs')
+        .get();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const dataArray = doc.data()?.data || [];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (dataArray.length >= 30) {
+        dataArray.shift();
+      }
+      const now = new Date();
+      const hours = now.getHours();
+      const minutes = now.getMinutes().toString().padStart(2, '0'); // luôn 2 chữ số
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      dataArray.push({
+        level: data,
+        time: `${hours}:${minutes}`,
+      });
+      await this.firestoreService.getCollection('home').doc('rs').update({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        data: dataArray,
+      });
 
       return { success: true };
     } catch (error) {
@@ -229,14 +351,125 @@ export class HomeService {
       return { success: false, error: error.message };
     }
   }
-  async getGsStatus(): Promise<boolean> {
+  async getRsStatus(): Promise<{
+    status: boolean;
+    data: Array<{ level: number; time: string }>;
+    infor: string;
+    level: number;
+  }> {
+    const doc = await this.firestoreService
+      .getCollection('home')
+      .doc('rs')
+      .get();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    console.log(doc.data()?.data.length);
+
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      status: doc.data()?.status,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      data: doc.data()?.data,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      infor: doc.data()?.infor,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      level: doc.data()?.level,
+    };
+  }
+
+  async updateGs(obj: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.gatewayService.server.emit('gasStatusUpdate', obj);
+      await this.firestoreService.getCollection('home').doc('gs').update({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        status: obj.status,
+      });
+
+      return { success: true };
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      return { success: false, error: error.message };
+    }
+  }
+
+  async updateGsData(
+    data: number,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const doc = await this.firestoreService
+        .getCollection('home')
+        .doc('gs')
+        .get();
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const dataArray = doc.data()?.data || [];
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (dataArray.length >= 30) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+        dataArray.shift(); // Xóa phần tử đầu tiên nếu đã đủ 20 phần tử
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      const now = new Date();
+      const hours = now.getHours();
+      const minutes = now.getMinutes().toString().padStart(2, '0'); // luôn 2 chữ số
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      dataArray.push({
+        level: data,
+        time: `${hours}:${minutes}`,
+      });
+      await this.firestoreService.getCollection('home').doc('gs').update({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        data: dataArray,
+      });
+
+      return { success: true };
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      return { success: false, error: error.message };
+    }
+  }
+
+  async updateGsLevel(
+    level: number,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      await this.firestoreService.getCollection('home').doc('gs').update({
+        level: level,
+      });
+      const doc = await this.firestoreService
+        .getCollection('home')
+        .doc('gs')
+        .get();
+      console.log('doc', doc.data());
+      this.gatewayService.server.emit('gasStatusUpdate', doc.data());
+      return { success: true };
+    } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      return { success: false, error: error.message };
+    }
+  }
+  async getGsStatus(): Promise<{
+    status: boolean;
+    data: Array<{ level: number; time: string }>;
+    infor: string;
+    level: number;
+  }> {
     const doc = await this.firestoreService
       .getCollection('home')
       .doc('gs')
       .get();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    console.log(doc.data()?.data.length);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return doc.data()?.status;
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      status: doc.data()?.status,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      data: doc.data()?.data,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      infor: doc.data()?.infor,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      level: doc.data()?.level,
+
+    };
   }
 
   async updateBuz(data: any): Promise<{ success: boolean; error?: string }> {
