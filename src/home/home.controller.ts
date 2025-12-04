@@ -77,6 +77,16 @@ export class HomeController {
     return { status: 'ok' };
   }
 
+  @Post('temp-humid/chart')
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async receiveTempHumidForChart(
+    @Body() data: { temperature: number; humidity: number; rain: boolean },
+  ) {
+    console.log('Nhận dữ liệu từ ESP32:', data);
+    void this.service.updateTemperatureHumidityForChart(data);
+    return { status: 'ok' };
+  }
+
   @Post('change-password')
   async changePassword(
     @Body() data: { oldPassword: string; newPassword: string },
@@ -251,6 +261,28 @@ export class HomeController {
     const rs_level = (await this.service.getRsStatus()).level;
     const gs_level = (await this.service.getGsStatus()).level;
     return { fs_level, rs_level, gs_level };
+  }
+
+  @Get('temp-chart')
+  async getTemp(): Promise<{
+    data: Array<{ level: number; time: string }>;
+  }> {
+    const status = await this.service.getTemp();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    return {
+      data: status.data,
+    };
+  }
+
+  @Get('humid-chart')
+  async getHumid(): Promise<{
+    data: Array<{ level: number; time: string }>;
+  }> {
+    const status = await this.service.getHumid();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    return {
+      data: status.data,
+    };
   }
 
 }

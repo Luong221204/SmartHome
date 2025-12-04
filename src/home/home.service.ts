@@ -28,6 +28,15 @@ export class HomeService {
         .getCollection('home')
         .doc('rs')
         .update({ data: [] });
+
+       await this.firestoreService
+        .getCollection('home')
+        .doc('temperature')
+        .update({ data: [] });
+       await this.firestoreService
+        .getCollection('home')
+        .doc('humidity')
+        .update({ data: [] });
       return { success: true };
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (err) {
@@ -158,6 +167,74 @@ export class HomeService {
     });
   }
 
+  async updateTemperatureHumidityForChart(data: {
+    temperature: number;
+    humidity: number;
+    rain: boolean;
+  }): Promise<void> {
+    const doc = await this.firestoreService
+      .getCollection('home')
+      .doc('temperature')
+      .get();
+
+    const doc1 = await this.firestoreService
+      .getCollection('home')
+      .doc('humidity')
+      .get();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const dataArray = doc.data()?.data || [];
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const dataArray1 = doc1.data()?.data || [];
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (dataArray.length >= 30) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      dataArray.shift(); // Xóa phần tử đầu tiên nếu đã đủ 20 phần tử
+    }
+
+     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (dataArray1.length >= 30) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      dataArray1.shift(); // Xóa phần tử đầu tiên nếu đã đủ 20 phần tử
+    }
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes().toString().padStart(2, '0'); // luôn 2 chữ số
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    dataArray.push({
+      level: data.temperature,
+      time: `${hours}:${minutes}`,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    dataArray1.push({
+      level: data.humidity,
+      time: `${hours}:${minutes}`,
+    });
+
+    await this.firestoreService
+      .getCollection('home')
+      .doc('temperature')
+      .update({
+        data: dataArray,
+      });
+
+    await this.firestoreService.getCollection('home').doc('humidity').update({
+      data: dataArray1,
+    });
+
+    const doc2 = await this.firestoreService
+      .getCollection('home')
+      .doc('temperature')
+      .get();
+    this.gatewayService.server.emit('temperature', doc2.data());
+
+    const doc3 = await this.firestoreService
+      .getCollection('home')
+      .doc('humidity')
+      .get();
+    this.gatewayService.server.emit('humidity', doc3.data());
+  }
+
   async changePassword(
     oldPassword: string,
     newPassword: string,
@@ -227,7 +304,12 @@ export class HomeService {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         data: dataArray,
       });
-
+      const doc1 = await this.firestoreService
+        .getCollection('home')
+        .doc('fs')
+        .get();
+      console.log('doc', doc1.data());
+      this.gatewayService.server.emit('fsStatusUpdate', doc1.data());
       return { success: true };
     } catch (error) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
@@ -279,6 +361,34 @@ export class HomeService {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       level: doc.data()?.level,
 
+    };
+  }
+
+  async getTemp(): Promise<{
+    data: Array<{ level: number; time: string }>;
+  }> {
+    const doc = await this.firestoreService
+      .getCollection('home')
+      .doc('temperature')
+      .get();
+
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      data: doc.data()?.data,
+    };
+  }
+
+  async getHumid(): Promise<{
+    data: Array<{ level: number; time: string }>;
+  }> {
+    const doc = await this.firestoreService
+      .getCollection('home')
+      .doc('humidity')
+      .get();
+
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      data: doc.data()?.data,
     };
   }
 
@@ -344,7 +454,12 @@ export class HomeService {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         data: dataArray,
       });
-
+      const doc1 = await this.firestoreService
+        .getCollection('home')
+        .doc('rs')
+        .get();
+      console.log('doc', doc1.data());
+      this.gatewayService.server.emit('rsStatusUpdate', doc1.data());
       return { success: true };
     } catch (error) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
@@ -415,11 +530,18 @@ export class HomeService {
         level: data,
         time: `${hours}:${minutes}`,
       });
+
       await this.firestoreService.getCollection('home').doc('gs').update({
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         data: dataArray,
       });
 
+      const doc1 = await this.firestoreService
+        .getCollection('home')
+        .doc('gs')
+        .get();
+      console.log('doc', doc1.data());
+      this.gatewayService.server.emit('gasStatusUpdate', doc1.data());
       return { success: true };
     } catch (error) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
