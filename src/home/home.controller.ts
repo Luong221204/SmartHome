@@ -241,4 +241,16 @@ export class HomeController {
     return await this.service.updateRsData(level);
   }
 
+  @Get('all-levels')
+  async getAllLevels(): Promise<{
+    fs_level: number;
+    rs_level: number;
+    gs_level: number;
+  }> {
+    const fs_level = (await this.service.getFsStatus()).level;
+    const rs_level = (await this.service.getRsStatus()).level;
+    const gs_level = (await this.service.getGsStatus()).level;
+    return { fs_level, rs_level, gs_level };
+  }
+
 }
