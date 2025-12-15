@@ -13,12 +13,7 @@ import { JwtStrategy } from './jwt.strategy';
       signOptions: { expiresIn: '1h' },
     }),
   ],
-  providers: [
-    UserFirestoreService,
-    AuthService,
-    EmailService,
-    JwtStrategy,
-  ],
+  providers: [UserFirestoreService, AuthService, EmailService, JwtStrategy],
   controllers: [AuthController],
   exports: [AuthService],
 })

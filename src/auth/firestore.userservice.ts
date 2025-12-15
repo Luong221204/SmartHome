@@ -23,6 +23,7 @@ export class UserFirestoreService {
   async createUser(user: any) {
     const doc = this.users.doc(); // auto id
     await doc.set(user);
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return { id: doc.id, ...user };
   }
 
