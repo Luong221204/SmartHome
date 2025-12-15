@@ -13,7 +13,7 @@ export class AuthController {
 
   @Post('register')
   async register(@Body() dto: RegisterDto) {
-    if (dto.password !== dto.confirmPassword) throw new Error('Not match');
+    if (dto.password !== dto.confirmPassword) return { message: 'Mật khẩu không khớp', status:false };
     return this.auth.register(dto.name,dto.email, dto.password);
   }
 
@@ -21,7 +21,7 @@ export class AuthController {
   async login(@Body() dto: LoginDto) {
     console.log('Login attempt for email:', dto.email);
     const user = await this.auth.validateUser(dto.email, dto.password);
-    if (!user) return { message: 'tài khoản hoặc mật khẩu không đúng' };
+    if (!user) return { message: 'tài khoản hoặc mật khẩu không đúng',status:false };
     return this.auth.login(user);
   }
 

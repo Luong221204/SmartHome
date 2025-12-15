@@ -10,6 +10,7 @@ import { EmailService } from './email.service';
 import * as admin from 'firebase-admin';
 import { randomInt } from 'crypto';
 import { createHash } from 'crypto';
+import { stat } from 'fs';
 @Injectable()
 export class AuthService {
   constructor(
@@ -20,7 +21,7 @@ export class AuthService {
 
   async register(name: string, email: string, password: string) {
     const exists = await this.firestoreUsers.findByEmail(email);
-    if (exists) throw new BadRequestException('Email already exists');
+    if (exists) return { message: 'Email đã tồn tại', status: false };
 
     const hash = await bcrypt.hash(password, 10);
 
@@ -32,7 +33,7 @@ export class AuthService {
       permissions: [],
     });
 
-    return newUser;
+    return { message: 'Đăng ký thành công', status: true, ...newUser };
   }
 
   async validateUser(email: string, password: string) {
@@ -52,7 +53,7 @@ export class AuthService {
       role: user.role,
       permissions: user.permissions ?? [],
     };
-    return { ...user, access_token: this.jwtService.sign(payload) };
+    return { ...user, access_token: this.jwtService.sign(payload) ,status:true };
   }
 
   async generateOtpReset(email: string) {
