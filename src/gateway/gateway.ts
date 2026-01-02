@@ -1,4 +1,4 @@
-import { Body, OnModuleInit } from '@nestjs/common';
+import { Body, Injectable, OnModuleInit } from '@nestjs/common';
 import {
   SubscribeMessage,
   WebSocketGateway,
@@ -7,6 +7,7 @@ import {
 import { Server } from 'socket.io';
 /* ignore - prettier */
 @WebSocketGateway()
+@Injectable()
 export class MyGateway implements OnModuleInit {
   @WebSocketServer()
   server: Server;

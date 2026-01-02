@@ -3,7 +3,7 @@ import * as admin from 'firebase-admin';
 
 @Injectable()
 export class FirestoreService {
-  private db: FirebaseFirestore.Firestore;
+  public db: FirebaseFirestore.Firestore;
   constructor() {
     if (!admin.apps.length) {
       admin.initializeApp({

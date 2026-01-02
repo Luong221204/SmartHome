@@ -1,6 +1,8 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { HomeService } from './home.service';
-import { MultiAuthGuard } from 'src/auth/guards/multi-auth.guard';
+import { MultiAuthGuard } from 'src/common/decorators/guards/multi-auth.guard';
+import { Auth } from 'firebase-admin/auth';
+import { JwtAuthGuard } from 'src/common/decorators/guards/jwt-auth.guard';
 
 
 @Controller('home')
@@ -10,11 +12,11 @@ export class HomeController {
 
   @UseGuards(MultiAuthGuard)
   @Get()
-  getStatus(): { success: boolean } {
-    return { success: true };
+  getStatus(@Req() req) {
+     return req.user;
   }
 
-  @UseGuards(MultiAuthGuard)
+  @UseGuards(JwtAuthGuard)
   @Get('hello')
   getHello(): Promise<{ success: boolean }> {
     return this.service.getHello();

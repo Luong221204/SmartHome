@@ -1,32 +1,25 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { FirebaseService } from './firebase.service';
-import { HomeService } from 'src/home/home.service';
+import { FcmTokenDto } from './dto/fcmToken.dto';
+import { NotificationRepository } from './notification.repo';
 @Controller('esp')
 export class EspController {
   constructor(
     private readonly firebaseService: FirebaseService,
-    private readonly homeService: HomeService,
+    private readonly notificationRepository: NotificationRepository,
   ) {}
 
   @Post('update')
   async updateValue(@Body() data: { value: string }) {
     console.log('ESP32 gửi:', data.value);
     if (data.value === 'cháy') {
-      await this.homeService.updatePump({ status: true });
-      await this.homeService.updateBuz({ status: true });
-      await this.firebaseService.sendNotification(
+      await this.firebaseService.sendAlertNotification(
         'esp32',
         'Cảnh báo thảm họa',
         `Nhà đang có ${data.value}`,
       );
-    } else if (data.value === 'bình thường') {
-      await this.homeService.updatePump({ status: false });
-      await this.homeService.updateFan({ status: false });
-      await this.homeService.updateBuz({ status: false });
-    } else if (data.value === 'khói') {
-      await this.homeService.updateFan({ status: true });
-      await this.homeService.updateBuz({ status: true });
-      await this.firebaseService.sendNotification(
+    } else if (data.value === 'bình thường') { /* empty */ } else if (data.value === 'khói') {
+      await this.firebaseService.sendAlertNotification(
         'esp32',
         'Cảnh báo thảm họa',
         `Nhà đang có ${data.value}`,
@@ -34,5 +27,11 @@ export class EspController {
     }
 
     return { status: 'ok' };
+  }
+
+  @Post('fcm-token')
+  async updateFcmToken(@Body() data: FcmTokenDto) {
+    console.log('Cập nhật FCM Token từ ESP32:', data.fcmToken);
+    return await this.notificationRepository.updateFcmToken(data);
   }
 }

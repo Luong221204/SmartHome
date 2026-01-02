@@ -8,5 +8,6 @@ export interface User {
   permissions: string[];
   resetToken: string;
   resetExpires: number;
+  fcmToken: string;
   // các field khác nếu cần
 }
