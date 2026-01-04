@@ -3,6 +3,6 @@ import { FirestoreService } from 'src/home/firestore.service';
 
 @Injectable()
 export class SensorRepository {
-  constructor(@Inject() private readonly firebaseAdmin: FirestoreService) {
+  constructor() {
   }
 }

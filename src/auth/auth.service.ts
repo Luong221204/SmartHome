@@ -12,6 +12,7 @@ import * as admin from 'firebase-admin';
 import { randomInt } from 'crypto';
 import { createHash } from 'crypto';
 import { RefreshTokenCode } from 'src/enum/refreshToken.code';
+import { User } from './user.entity';
 @Injectable()
 export class AuthService {
   constructor(
@@ -37,17 +38,15 @@ export class AuthService {
     return { message: 'Đăng ký thành công', status: true, ...newUser };
   }
 
-  async validateUser(email: string, password: string) {
+  async validateUser(email: string, password: string): Promise<User | null> {
     const user = await this.firestoreUsers.findByEmail(email);
     if (!user) return null;
-
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) return null;
-    console.log('User FCM Token:', user.id, user.fcmToken);
     return user;
   }
 
-  async login(user: any) {
+  async login(user: User) {
     const payload = {
       sub: user.id,
       email: user.email,
@@ -58,12 +57,14 @@ export class AuthService {
       { sub: user.id },
       { expiresIn: '7d' },
     );
-    await this.firestoreUsers.updateUser(user.id, { fcmToken: user.fcmToken });
     await this.firestoreUsers.createSession(user.id, refreshToken);
     return {
-      ...user, access_token: this.jwtService.sign(payload, {
-        expiresIn: '1m'
-      }), status: true, refreshToken
+      ...user,
+      access_token: this.jwtService.sign(payload, {
+        expiresIn: '1m',
+      }),
+      status: true,
+      refreshToken,
     };
   }
 

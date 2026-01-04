@@ -1,12 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { FcmTokenDto } from "./dto/fcmToken.dto";
 import * as admin from 'firebase-admin';
+import { Home } from 'src/dtos/dtos.home';
+import { RequestJoinHouseDto } from './dto/requesJoinHouse.dto';
+import { FirebaseService } from './firebase.service';
 
 @Injectable()
 export class NotificationRepository {
-  constructor() {
-
-  }
+  constructor(private firebaseService: FirebaseService) { }
 
   async updateFcmToken(
     f: FcmTokenDto,
@@ -30,4 +31,13 @@ export class NotificationRepository {
       return { success: false, error: 'Lỗi khi cập nhật FCM Token' };
     }
   }
+
+  getFcmToken(docId: string): any {
+    const snap = admin.firestore().collection('userFcmToken').doc(docId);
+    void snap.delete();
+
+    return { success: true };
+  }
+
+  
 }

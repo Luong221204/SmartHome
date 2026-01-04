@@ -1,6 +1,6 @@
 import { IsString } from 'class-validator';
 
-export class HouseApprovalDto {
+export class HousePendingDto {
   @IsString()
   houseId: string;
 
@@ -10,13 +10,8 @@ export class HouseApprovalDto {
   @IsString()
   memberApprovalId: string;
 
-  requestAt: Date;
-
   isApproved: boolean;
 
-  approvedAt: Date;
+  fcmToken: string;
 
-  updateAt: Date;
-
-  isActive: boolean;
 }

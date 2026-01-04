@@ -2,12 +2,12 @@ import { Module } from '@nestjs/common';
 import { GatewayModule } from 'src/gateway/gateway.module';
 import { HomeService } from './home.service';
 import { HomeController } from './home.controller';
-import { FirestoreModule } from './firestore.module';
+import { FirestoreService } from './firestore.service';
 
 @Module({
-  imports: [GatewayModule, FirestoreModule],
-  providers: [HomeService],
+  imports: [GatewayModule],
+  providers: [HomeService, FirestoreService],
   controllers: [HomeController],
-  exports: [],
+  exports: [FirestoreService],
 })
 export class HomeModule {}

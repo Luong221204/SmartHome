@@ -1,8 +1,7 @@
 import { Module } from "@nestjs/common";
 import { EspController } from "./esp.controller";
-import { FirebaseService } from "./firebase.service";
-import { NotificationRepository } from "./notification.repo";
-
+import { FirebaseService } from './firebase.service';
+import { NotificationRepository } from './notification.repo';
 
 @Module({
   imports: [],

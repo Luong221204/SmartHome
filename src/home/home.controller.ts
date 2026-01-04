@@ -1,7 +1,6 @@
 import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { HomeService } from './home.service';
 import { MultiAuthGuard } from 'src/common/decorators/guards/multi-auth.guard';
-import { Auth } from 'firebase-admin/auth';
 import { JwtAuthGuard } from 'src/common/decorators/guards/jwt-auth.guard';
 
 

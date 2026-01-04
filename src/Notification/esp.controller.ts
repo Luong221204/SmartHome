@@ -1,7 +1,8 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query } from '@nestjs/common';
 import { FirebaseService } from './firebase.service';
 import { FcmTokenDto } from './dto/fcmToken.dto';
 import { NotificationRepository } from './notification.repo';
+import { RequestJoinHouseDto } from './dto/requesJoinHouse.dto';
 @Controller('esp')
 export class EspController {
   constructor(
@@ -34,4 +35,5 @@ export class EspController {
     console.log('Cập nhật FCM Token từ ESP32:', data.fcmToken);
     return await this.notificationRepository.updateFcmToken(data);
   }
+
 }

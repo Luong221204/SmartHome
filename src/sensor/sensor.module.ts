@@ -6,7 +6,7 @@ import { SensorRepository } from "./sensor.repository";
 import { FirestoreModule } from "src/home/firestore.module";
 
 @Module({
-  imports: [FirestoreModule],
+  imports: [],
   controllers: [SensorController],
   providers: [SensorService, SensorRepository],
 }
