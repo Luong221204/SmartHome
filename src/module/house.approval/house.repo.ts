@@ -60,6 +60,17 @@ export class HouseApprovalRepository {
         isPending: false,
         isWithdrawn: false,
       });
+      for (let i = 0; i < snap.data()?.userIds.length; i++) {
+        await this.db.collection('notification').add({
+          userId: snap.data()?.userIds[i],
+          type: 'request-join-house',
+          collection: 'houseRequestToAccess',
+          documentId: data.id,
+          createdAt: createdAt,
+          isRead: false,
+          description: `${request.userId} đã gửi yêu cầu tham gia nhà ${snap.data()?.address}`,
+        });
+      }
       return { success: true };
     } catch (error) {
       console.error('Lỗi khi lưu yêu cầu tham gia nhà:', error);
@@ -92,13 +103,50 @@ export class HouseApprovalRepository {
             .collection('houseRequestToAccess')
             .doc(docRef.docs[0].id)
             .update({ isPending: true, isApproved: body.isApproved });
-          await this.db.collection('housemembers').add({
+          const data = await this.db.collection('housemembers').add({
             houseId: body.houseId,
             memberId: body.memberId,
             approvedAt: new Date(),
             isApproved: body.isApproved,
             memberApprovalId: body.memberApprovalId,
           });
+          const snap = await this.db.collection('home').doc(body.houseId).get();
+          if (!snap.exists) {
+            console.error('House not found');
+            return { success: false, error: 'House not found' };
+          }
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          const requestName = await this.db
+            .collection('users')
+            .doc(body.memberId)
+            .get()
+            .then((doc) => doc.data()?.name || 'Người dùng');
+
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          const approvedName = await this.db
+            .collection('users')
+            .doc(body.memberApprovalId)
+            .get()
+            .then((doc) => doc.data()?.name || 'Người dùng');
+          for (let i = 0; i < snap.data()?.userIds.length; i++) {
+            await this.db.collection('notification').add({
+              userId: snap.data()?.userIds[i],
+              type: 'request-join-house-resolved',
+              collection: 'housemembers',
+              documentId: data.id,
+              createdAt: new Date(),
+              isRead: false,
+              description: `${approvedName} đã ${body.isApproved ? 'chấp thuận' : 'từ chối'} yêu cầu tham gia ${requestName} vào nhà ${snap.data()?.houseName}`,
+            });
+          }
+          ; if (body.isApproved) {
+            await this.db
+              .collection('home')
+              .doc(body.houseId)
+              .update({
+                userIds: admin.firestore.FieldValue.arrayUnion(body.memberId),
+              });
+          }
         }
       }
       return { success: true, fcmToken: docRef.docs[0].data().fcmToken };

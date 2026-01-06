@@ -41,7 +41,15 @@ export class FirebaseService {
       .doc(request.userId)
       .get()
       .then((doc) => doc.data()?.name || 'Người dùng');
-    const fcmTokens = houseDoc.data()?.fcmTokens as string[];
+    const userIds = houseDoc.data()?.userIds as string[];
+    const fcmTokens: string[] = [];
+    for (let i = 0; i < userIds.length; i++) {
+      const userDoc = await this.db.collection('users').doc(userIds[i]).get();
+      const fs = userDoc.data()?.fcmTokens as string[];
+      if (fs) {
+        fcmTokens.push(...fs);
+      }
+    }
     if (!fcmTokens || fcmTokens.length === 0) {
       return { success: false, error: 'No FCM tokens' };
     }

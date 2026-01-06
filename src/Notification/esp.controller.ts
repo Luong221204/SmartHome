@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, Get, Query, Patch, Req } from '@nestjs/common';
 import { FirebaseService } from './firebase.service';
 import { FcmTokenDto } from './dto/fcmToken.dto';
 import { NotificationRepository } from './notification.repo';
@@ -30,10 +30,32 @@ export class EspController {
     return { status: 'ok' };
   }
 
-  @Post('fcm-token')
+  @Get('notifications')
+  async getNotifications(@Req() req,@Query('userId') userId: string) {
+    return await this.notificationRepository.getNotifications(userId);
+  }
+
+  @Patch('fcm-token')
   async updateFcmToken(@Body() data: FcmTokenDto) {
     console.log('Cập nhật FCM Token từ ESP32:', data.fcmToken);
     return await this.notificationRepository.updateFcmToken(data);
   }
 
+  @Patch('delete-fcm-token')
+   async deleteFcmToken(@Body() data: FcmTokenDto) {
+    console.log('Cập nhật FCM Token từ ESP32:', data.fcmToken);
+    return await this.notificationRepository.deleteFcmToken(data);
+  }
+
+  @Patch('read-notification')
+  async readNotification(@Body() data: { notificationId: string }) {
+    return await this.notificationRepository.markAsRead(data.notificationId);
+  }
+
+  @Get('notification-info')
+  async getNotificationInfo(@Query('notificationId') notificationId: string) {
+    return await this.notificationRepository.getNotificationById(
+      notificationId,
+    );
+  }
 }
