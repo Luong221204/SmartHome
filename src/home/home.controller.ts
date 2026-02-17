@@ -112,7 +112,6 @@ export class HomeController {
   ): Promise<{ success: boolean; error?: string }> {
     return await this.service.updateFs({ status });
   }
-  @UseGuards(MultiAuthGuard)
   @Get('fs-status')
   async getFsStatus(): Promise<{
     status: boolean;
@@ -282,12 +281,22 @@ export class HomeController {
       data: status.data,
     };
   }
-  @UseGuards(MultiAuthGuard)
   @Get('humid-chart')
   async getHumid(): Promise<{
     data: Array<{ level: number; time: string }>;
   }> {
     const status = await this.service.getHumid();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    return {
+      data: status.data,
+    };
+  }
+
+  @Get('humid-temp')
+  async getHumidAndTemp(): Promise<{
+    data: Map<string, Array<{ level: number; time: string }>>;
+  }> {
+    const status = await this.service.getHumidAndTemp();
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     return {
       data: status.data,

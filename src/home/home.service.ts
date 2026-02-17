@@ -648,4 +648,14 @@ export class HomeService {
       return { success: false, error: error.message };
     }
   }
+  async getHumidAndTemp():Promise<{data: Map<string, Array<{ level: number; time: string }>>}>{
+    const doc = await this.firestoreService
+      .getCollection('home')
+      .doc('temperature')
+      .get();
+    console.log(doc.data()?.data);
+    return {
+      data: doc.data()?.data,
+    };
+  }
 }
