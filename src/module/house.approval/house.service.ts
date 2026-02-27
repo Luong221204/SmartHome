@@ -6,8 +6,10 @@ import { FirebaseService } from 'src/notification/firebase.service';
 import { HouseCreateDto } from './house.dto/house.create';
 import { HouseUpdateDto } from './house.dto/house.update';
 import { HousePendingDto } from './house.dto/house.approval';
+import strict from 'assert/strict';
 @Injectable()
 export class HouseApprovallService {
+  
   constructor(
     private readonly houseApprovalRepository: HouseApprovalRepository,
     private firebaseService: FirebaseService,
@@ -52,5 +54,24 @@ export class HouseApprovallService {
 
   async updateHouse(h: HouseUpdateDto) {
     return await this.houseApprovalRepository.updateHouse(h);
+  }
+
+  async getUserIdsbyHouseId(houseId: string): Promise<string[]> {
+    return await this.houseApprovalRepository.getUserIdsByHouseId(houseId);
+  }
+
+  async getAddressByHouseId(houseId: string): Promise<string> {
+    return await this.houseApprovalRepository.getAddressByHouseId(houseId);
+  }
+
+  async createRoom(body: any) {
+    return await this.houseApprovalRepository.createRoom(body);
+  }
+  async getRoomsByHouseId(houseId: string) {
+    return this.houseApprovalRepository.getRoomsByHouseId(houseId);
+  }
+
+  async getHouseInfo(houseId: string){
+    return this.houseApprovalRepository.getHouseInfo(houseId);
   }
 }

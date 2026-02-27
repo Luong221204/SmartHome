@@ -3,12 +3,13 @@ import { HouseApprovalController } from './house.controller';
 import { HouseApprovalRepository } from './house.repo';
 import { HouseApprovallService } from './house.service';
 import { NotificationModule } from 'src/notification/notification.module';
+import { forwardRef } from '@nestjs/common';
 
 @Module({
-  imports: [NotificationModule],
+  imports: [forwardRef(() => NotificationModule)],
   controllers: [HouseApprovalController],
   providers: [HouseApprovalRepository, HouseApprovallService],
-  exports: [HouseApprovallService],
+  exports: [HouseApprovallService, HouseApprovalRepository],
 })
 export class HouseApprovalModule {
 

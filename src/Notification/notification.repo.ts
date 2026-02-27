@@ -105,4 +105,35 @@ export class NotificationRepository {
       .get();
     return snap.exists ? info.data() : null;
   }
+
+
+
+  
+  async getUserIdsByHouseId(houseId: string): Promise<string[]> {
+    try {
+      const houseRef = this.db.collection('home').doc(houseId);
+      const houseDoc = await houseRef.get();
+      if (!houseDoc.exists) {
+        return [];
+      }
+      return houseDoc.data()?.userIds || [];
+    } catch (error) {     
+       console.error('Error getting userIds by houseId:', error);
+      return [];
+    }
+  }
+
+  async getAddressByHouseId(houseId: string): Promise<string> {
+    try {
+      const houseRef = this.db.collection('home').doc(houseId);
+      const houseDoc = await houseRef.get();
+      if (!houseDoc.exists) {
+        return '';
+      }
+      return houseDoc.data()?.address || '';
+    } catch (error) {
+      console.error('Error getting address by houseId:', error);
+      return '';
+    }
+}
 }

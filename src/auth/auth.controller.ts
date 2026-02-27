@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, Req, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Req, UnauthorizedException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dtos/register.dto';
 import { LoginDto } from './dtos/login.dto';
@@ -6,6 +6,7 @@ import { ForgotDto } from './dtos/forgot.dto';
 import { ResetDto } from './dtos/reset.dto';
 import { JwtAuthGuard } from '../common/decorators/guards/jwt-auth.guard';
 import { OptDto } from './dtos/reset-after-forgot.dto';
+import { Not } from 'typeorm';
 
 @Controller('auth')
 export class AuthController {
@@ -13,7 +14,10 @@ export class AuthController {
 
   @Post('register')
   async register(@Body() dto: RegisterDto) {
-    if (dto.password !== dto.confirmPassword) return { message: 'Mật khẩu không khớp', status: false };
+    if (dto.password !== dto.confirmPassword)
+      throw new BadRequestException(
+        'Mật khẩu và xác nhận mật khẩu không khớp!',
+      );
     return this.auth.register(dto.name, dto.email, dto.password);
   }
 
@@ -21,7 +25,7 @@ export class AuthController {
   async login(@Body() dto: LoginDto) {
     console.log('Login attempt for email:', dto.email);
     const user = await this.auth.validateUser(dto.email, dto.password);
-    if (!user) return { message: 'tài khoản hoặc mật khẩu không đúng', status: false };
+    if (!user) throw new NotFoundException('Email hoặc mật khẩu không đúng!');
     return this.auth.login(user);
   }
 

@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req } from '@nestjs/common';
 import { HouseApprovallService } from './house.service';
 import { RequestJoinHouseDto } from 'src/notification/dto/requesJoinHouse.dto';
 import { HouseCreateDto } from './house.dto/house.create';
@@ -37,5 +37,19 @@ export class HouseApprovalController {
     return await this.houseApprovallService.updateHouse(h);
   }
 
-  
+  @Post('create-room')
+  async createRoom(@Body() body: any) {
+    return await this.houseApprovallService.createRoom(body);
+  }
+
+  @Get('room')
+  async getRoomsByHouseId(@Req() req: any, @Query('houseId') houseId: string) {
+    return await this.houseApprovallService.getRoomsByHouseId(houseId);
+  }
+
+  @Get('')
+  async getHouseInfo(@Req() req: any, @Query('houseId') houseId: string) {
+    return this.houseApprovallService.getHouseInfo(houseId);
+  }
+
 }

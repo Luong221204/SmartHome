@@ -23,7 +23,7 @@ export class AuthService {
 
   async register(name: string, email: string, password: string) {
     const exists = await this.firestoreUsers.findByEmail(email);
-    if (exists) return { message: 'Email đã tồn tại', status: false };
+    if (exists) throw new BadRequestException('Email đã tồn tại trong hệ thống!');
 
     const hash = await bcrypt.hash(password, 10);
 
@@ -61,7 +61,7 @@ export class AuthService {
     return {
       ...user,
       access_token: this.jwtService.sign(payload, {
-        expiresIn: '7d',
+        expiresIn: '1m',
       }),
       status: true,
       refreshToken,
@@ -70,8 +70,9 @@ export class AuthService {
 
   async generateOtpReset(email: string) {
     const user = await this.firestoreUsers.findByEmail(email);
-    if (!user) return { status: false, message: 'email không tồn tại !' };
-
+    if (!user) {
+      throw new NotFoundException('Email không tồn tại trong hệ thống!');
+    }
     // Tạo OTP gồm 6 chữ số
     const otp = randomInt(100000, 999999).toString();
 
@@ -124,18 +125,18 @@ export class AuthService {
   ) {
     console.log('Verifying OTP for email:', newPassword);
     const user = await this.firestoreUsers.findByEmail(email);
-    if (!user) return { message: 'email không tồn tại', status: false };
+    if (!user) throw new NotFoundException('Email không tồn tại trong hệ thống!');
 
     if (!user.resetOtp)
-      return { message: 'OTP chưa được yêu cầu trước đây ', status: false };
+      throw new BadRequestException('Không có yêu cầu đặt lại mật khẩu nào!');
 
     const hashed = createHash('sha256').update(otp).digest('hex');
 
     if (hashed !== user.resetOtp)
-      return { message: 'OTP không đúng', status: false };
+      throw new BadRequestException('OTP không đúng');
 
     if (Date.now() > user.resetExpires)
-      return { message: 'Thời gian quá hạn', status: false };
+      throw new BadRequestException('Thời gian quá hạn');
 
     const hash1 = await bcrypt.hash(newPassword, 10);
 

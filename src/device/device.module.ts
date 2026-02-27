@@ -9,5 +9,6 @@ import { DeviceRepository } from "./device.repo";
     imports: [],
     controllers: [DeviceController],
   providers: [DeviceService, DeviceRepository],
+  exports: [DeviceService, DeviceRepository],
 })
 export class DeviceModule {}

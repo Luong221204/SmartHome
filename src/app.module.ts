@@ -11,6 +11,8 @@ import { HouseApprovalModule } from './module/house.approval/house.module';
 import { AutoModule } from './automation/auto.module';
 import { MqttBrokerModule } from './mqtt/mqtt.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { UserModule } from './user/user.module';
+import { ScheduleModule } from '@nestjs/schedule/dist/schedule.module';
 @Module({
   imports: [
     EventEmitterModule.forRoot(), // Thêm dòng này
@@ -23,6 +25,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     HouseApprovalModule,
     AutoModule,
     MqttBrokerModule,
+    UserModule,
+    ScheduleModule.forRoot(), // BẮT BUỘC phải có dòng này
     ConfigModule.forRoot({ isGlobal: true }),
   ],
 })

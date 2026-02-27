@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { HouseRequestDto } from './house.dto/house.request';
 import { RequestJoinHouseDto } from 'src/notification/dto/requesJoinHouse.dto';
 import * as admin from 'firebase-admin';
@@ -21,7 +21,7 @@ export class HouseApprovalRepository {
       return { success: true };
     } catch (err) {
       console.error('Error adding document: ', err);
-      return { success: false };
+      throw new BadRequestException('Error adding document');
     }
   }
 
@@ -38,7 +38,7 @@ export class HouseApprovalRepository {
       return houseIds;
     } catch (err) {
       console.error('Error getting documents: ', err);
-      return [];
+      throw new BadRequestException('Error getting house IDs by user ID');
     }
   }
 
@@ -46,7 +46,7 @@ export class HouseApprovalRepository {
     const snap = await this.db.collection('home').doc(request.houseId).get();
     if (!snap.exists) {
       console.error('House not found');
-      return { success: false, error: 'House not found' };
+      throw new BadRequestException('House not found');
     }
     try {
       const createdAt = request.createdAt || new Date();
@@ -74,7 +74,7 @@ export class HouseApprovalRepository {
       return { success: true };
     } catch (error) {
       console.error('Lỗi khi lưu yêu cầu tham gia nhà:', error);
-      return { success: false, error: 'Lỗi khi lưu yêu cầu tham gia nhà' };
+      throw new BadRequestException('Lỗi khi lưu yêu cầu tham gia nhà');
     }
   }
 
@@ -88,71 +88,69 @@ export class HouseApprovalRepository {
         .limit(1)
         .get();
       if (docRef.empty) {
-        return { success: false, error: 'Yêu cầu không tồn tại' };
+        throw new BadRequestException('Yêu cầu không tồn tại');
       } else {
         if (docRef.docs[0].data().isWithdrawn == true) {
-          return {
-            success: false,
-            error: 'Yêu cầu đã được người dùng rút lại',
-          };
+          throw new BadRequestException('Yêu cầu đã được người dùng rút lại');
+        };
+      }
+      if (docRef.docs[0].data().isPending == true) {
+        throw new BadRequestException('Yêu cầu đã được xử lý');
+      } else {
+        await this.db
+          .collection('houseRequestToAccess')
+          .doc(docRef.docs[0].id)
+          .update({ isPending: true, isApproved: body.isApproved });
+        const data = await this.db.collection('housemembers').add({
+          houseId: body.houseId,
+          memberId: body.memberId,
+          approvedAt: new Date(),
+          isApproved: body.isApproved,
+          memberApprovalId: body.memberApprovalId,
+        });
+        const snap = await this.db.collection('home').doc(body.houseId).get();
+        if (!snap.exists) {
+          console.error('House not found');
+          throw new BadRequestException('House not found');
         }
-        if (docRef.docs[0].data().isPending == true) {
-          return { success: false, error: 'Yêu cầu đã được xử lý' };
-        } else {
-          await this.db
-            .collection('houseRequestToAccess')
-            .doc(docRef.docs[0].id)
-            .update({ isPending: true, isApproved: body.isApproved });
-          const data = await this.db.collection('housemembers').add({
-            houseId: body.houseId,
-            memberId: body.memberId,
-            approvedAt: new Date(),
-            isApproved: body.isApproved,
-            memberApprovalId: body.memberApprovalId,
-          });
-          const snap = await this.db.collection('home').doc(body.houseId).get();
-          if (!snap.exists) {
-            console.error('House not found');
-            return { success: false, error: 'House not found' };
-          }
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          const requestName = await this.db
-            .collection('users')
-            .doc(body.memberId)
-            .get()
-            .then((doc) => doc.data()?.name || 'Người dùng');
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const requestName = await this.db
+          .collection('users')
+          .doc(body.memberId)
+          .get()
+          .then((doc) => doc.data()?.name || 'Người dùng');
 
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          const approvedName = await this.db
-            .collection('users')
-            .doc(body.memberApprovalId)
-            .get()
-            .then((doc) => doc.data()?.name || 'Người dùng');
-          for (let i = 0; i < snap.data()?.userIds.length; i++) {
-            await this.db.collection('notification').add({
-              userId: snap.data()?.userIds[i],
-              type: 'request-join-house-resolved',
-              collection: 'housemembers',
-              documentId: data.id,
-              createdAt: new Date(),
-              isRead: false,
-              description: `${approvedName} đã ${body.isApproved ? 'chấp thuận' : 'từ chối'} yêu cầu tham gia ${requestName} vào nhà ${snap.data()?.houseName}`,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const approvedName = await this.db
+          .collection('users')
+          .doc(body.memberApprovalId)
+          .get()
+          .then((doc) => doc.data()?.name || 'Người dùng');
+        for (let i = 0; i < snap.data()?.userIds.length; i++) {
+          await this.db.collection('notification').add({
+            userId: snap.data()?.userIds[i],
+            type: 'request-join-house-resolved',
+            collection: 'housemembers',
+            documentId: data.id,
+            createdAt: new Date(),
+            isRead: false,
+            description: `${approvedName} đã ${body.isApproved ? 'chấp thuận' : 'từ chối'} yêu cầu tham gia ${requestName} vào nhà ${snap.data()?.houseName}`,
+          });
+        }
+        ; if (body.isApproved) {
+          await this.db
+            .collection('home')
+            .doc(body.houseId)
+            .update({
+              userIds: admin.firestore.FieldValue.arrayUnion(body.memberId),
             });
-          }
-          ; if (body.isApproved) {
-            await this.db
-              .collection('home')
-              .doc(body.houseId)
-              .update({
-                userIds: admin.firestore.FieldValue.arrayUnion(body.memberId),
-              });
-          }
         }
       }
       return { success: true, fcmToken: docRef.docs[0].data().fcmToken };
-    } catch (error) {
+    }
+    catch (error) {
       console.error('Lỗi khi duyệt yêu cầu tham gia nhà:', error);
-      return { success: false, error: 'Lỗi khi duyệt yêu cầu tham gia nhà' };
+      throw new BadRequestException('Lỗi khi duyệt yêu cầu tham gia nhà');
     }
   }
 
@@ -166,10 +164,10 @@ export class HouseApprovalRepository {
         .limit(1)
         .get();
       if (docRef.empty) {
-        return { success: false, error: 'Yêu cầu không tồn tại' };
+        throw new BadRequestException('Yêu cầu không tồn tại');
       } else {
         if (docRef.docs[0].data().isPending == true) {
-          return { success: false, error: 'Yêu cầu đã được xử lý' };
+          throw new BadRequestException('Yêu cầu đã được xử lý');
         } else {
           await this.db
             .collection('houseRequestToAccess')
@@ -180,7 +178,7 @@ export class HouseApprovalRepository {
       return { success: true };
     } catch (error) {
       console.error('Lỗi khi rút yêu cầu tham gia nhà', error);
-      return { success: false, error: 'Lỗi khi rút yêu cầu tham gia nhà' };
+      throw new BadRequestException('Error withdrawing house request');
     }
   }
   async createHouse(houseData: HouseCreateDto) {
@@ -191,6 +189,10 @@ export class HouseApprovalRepository {
         createdAt: houseData.createdAt || new Date(),
         fcmTokens: houseData.fcmTokens || [],
         userIds: [houseData.userId],
+        totalPower: 0,
+        totalRoom: 0,
+        totalSensor: 0,
+        totalDevice: 0,
         address: houseData.address || '',
       });
       await this.db
@@ -199,10 +201,10 @@ export class HouseApprovalRepository {
         .update({
           houseIds: admin.firestore.FieldValue.arrayUnion(docRef.id),
         });
-      return { success: true, houseId: docRef.id };
+      return true;
     } catch (error) {
       console.error('Error creating house:', error);
-      return { success: false, error: 'Error creating house' };
+      throw new BadRequestException('Error creating house');
     }
   }
 
@@ -218,7 +220,76 @@ export class HouseApprovalRepository {
       });
       return { success: true };
     } catch (error) {
-      return { success: false, error: 'Error updating house' };
+      throw new BadRequestException('Error updating house');
     }
   }
+
+  async getUserIdsByHouseId(houseId: string): Promise<string[]> {
+    try {
+      const houseRef = this.db.collection('home').doc(houseId);
+      const houseDoc = await houseRef.get();
+      if (!houseDoc.exists) {
+        throw new BadRequestException('House not found');
+      }
+      return houseDoc.data()?.userIds || [];
+    } catch (error) {
+      console.error('Error getting userIds by houseId:', error);
+      throw new BadRequestException('Error getting userIds by houseId');
+    }
+  }
+
+  async getAddressByHouseId(houseId: string): Promise<string> {
+    try {
+      const houseRef = this.db.collection('home').doc(houseId);
+      const houseDoc = await houseRef.get();
+      if (!houseDoc.exists) {
+        throw new BadRequestException('House not found');
+      }
+      return houseDoc.data()?.address || '';
+    } catch (error) {
+      console.error('Error getting address by houseId:', error);
+      throw new BadRequestException('Error getting address by houseId');
+    }
+  }
+
+
+  async createRoom(body: any) {
+    try {
+      await this.db.collection('rooms').add({
+        ...body,
+        createdAt: new Date(),
+      });
+      return true;
+    } catch (error) {
+      console.error('Error creating room:', error);
+      throw new BadRequestException('Error creating room');
+    }
+  }
+
+  async getRoomsByHouseId(houseId: string) {
+    try{
+      const snapshot = await this.db
+        .collection('rooms')
+        .where('houseId', '==', houseId)
+        .get();
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+    } catch (error) {
+      console.error('Error getting rooms by houseId:', error);
+      throw new BadRequestException('Error getting rooms by houseId');
+    }
+  }  
+
+  async getHouseInfo(houseId: string) {
+    try {
+      const snapshot = this.db.collection('home').doc(houseId).get();
+      return (await snapshot).data();
+    } catch (error) {
+      console.error('Error getting house info by houseId:', error);
+      throw new BadRequestException('Error getting house info by houseId');
+    }
+  }
+
 }

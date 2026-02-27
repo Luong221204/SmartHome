@@ -1,8 +1,10 @@
 import * as admin from 'firebase-admin';
-import { Injectable } from '@nestjs/common';
+import { Injectable,Inject, forwardRef } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 import { RequestJoinHouseDto } from './dto/requesJoinHouse.dto';
 import { HousePendingDto } from 'src/module/house.approval/house.dto/house.approval';
+import { HouseApprovallService } from 'src/module/house.approval/house.service';
+import { NotificationRepository } from './notification.repo';
 dotenv.config();
 
 @Injectable()
@@ -153,4 +155,75 @@ export class FirebaseService {
       console.error('FCM error:', err);
     }
   }
+
+  async sendAutomationAlertNotification(
+    topic: string,
+    title: string,
+    houseId: string,
+    notificationId?: string,
+  ) {
+    const address = await this.getAddressByHouseId(houseId);
+    const userIds = await this.getUserIdsByHouseId(houseId);
+    const fcmTokens: string[] = [];
+    for (let i = 0; i < userIds.length; i++) {
+      await this.db.collection('notification_user').add({
+        notificationId: notificationId || '',
+        userId: userIds[i],
+        isRead: false,
+        markedAsRead: false,
+      });
+      const userDoc = await this.db.collection('users').doc(userIds[i]).get();
+      const fs = userDoc.data()?.fcmTokens as string[]; 
+      if (fs) {
+        fcmTokens.push(...fs);
+      }
+  }
+   const message: admin.messaging.MulticastMessage = {
+      tokens: fcmTokens,
+      notification: {
+        title: title,
+        body: `Nhà ở ${address} đang có ${topic}`,
+      },
+
+      data: {
+        address,
+        description: `Nhà ở ${address}  đang có ${topic}`,
+        type: 'AUTOMATION_ALERT',
+      },
+    };
+    try {
+      const response = await admin.messaging().sendEachForMulticast(message);
+      console.log('FCM sent:', response);
+    } catch (err) {
+      console.error('FCM error:', err);
+    }
+  }
+
+   async getUserIdsByHouseId(houseId: string): Promise<string[]> {
+    try {
+      const houseRef = this.db.collection('home').doc(houseId);
+      const houseDoc = await houseRef.get();
+      if (!houseDoc.exists) {
+        return [];
+      }
+      return houseDoc.data()?.userIds || [];
+    } catch (error) {     
+       console.error('Error getting userIds by houseId:', error);
+      return [];
+    }
+  }
+
+  async getAddressByHouseId(houseId: string): Promise<string> {
+    try {
+      const houseRef = this.db.collection('home').doc(houseId);
+      const houseDoc = await houseRef.get();
+      if (!houseDoc.exists) {
+        return '';
+      }
+      return houseDoc.data()?.address || '';
+    } catch (error) {
+      console.error('Error getting address by houseId:', error);
+      return '';
+    }
+}
 }

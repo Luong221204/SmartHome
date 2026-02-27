@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query, Req, UseGuards } from "@nestjs/common";
 import { AutoService } from "./auto.service";
 import { AutomationDto } from './auto.dto/auto.object';
 import { MultiAuthGuard } from "src/common/decorators/guards/multi-auth.guard";
@@ -37,6 +37,15 @@ export class AutoController {
     @Param('automationId') automationId: string,
   ) {
       return this.service.deleteAutomation(req.user, automationId);
+    }
+
+  @Get('')
+  async getAutomationByDeviceId(
+    @Query('deviceId') deviceId: string,
+    @Query('limit',new ParseIntPipe()) limit: number,
+    @Query('startAfter') startAfter?: string,
+  ) {
+    return this.service.getAutomationScene(deviceId, limit, startAfter);
     }
 
 }

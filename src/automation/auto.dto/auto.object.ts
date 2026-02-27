@@ -4,6 +4,7 @@ export class Action {
   command: string;
   deviceId: string;
   value: number;
+  status: boolean;
 }
 
 export class Condition {
@@ -19,13 +20,13 @@ export class Control {
 }
 
 export class Rule {
-  id?: string;            // Firestore document id
+  id?: string; // Firestore document id
   action: Action;
   condition: Condition;
   control: Control;
 }
 
-import { IsNumber, IsString, ValidateNested } from 'class-validator';
+import { IsBoolean, IsNumber, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class ActionDto {
@@ -37,6 +38,9 @@ class ActionDto {
 
   @IsNumber()
   value: number;
+
+  @IsBoolean()
+  status: boolean;
 }
 
 class ConditionDto {
@@ -53,9 +57,20 @@ class ConditionDto {
   threshold: number;
 }
 
+class ScheduleDto {
+  @IsString()
+  cron: string;
+
+  @IsString()
+  timezone: string;
+
+}
+
 class ControlDto {
   @IsNumber()
   cooldownMinutes: number;
+  lastExecuted: Timestamp;
+
 }
 
 export class AutomationDto {
@@ -71,7 +86,10 @@ export class AutomationDto {
   @Type(() => ControlDto)
   control: ControlDto;
 
+  schedule: ScheduleDto;
   name: string;
   id: string;
   houseId: string;
+  type: string;
+  isEnabled: boolean;
 }
