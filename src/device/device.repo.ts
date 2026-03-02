@@ -2,6 +2,7 @@ import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { FirestoreService } from "src/home/firestore.service";
 import * as admin from 'firebase-admin';
 import { AutomationDeviceDto } from "./dto/device.dto";
+import { FieldValue } from "firebase-admin/firestore";
 
 
 @Injectable()
@@ -96,34 +97,41 @@ export class DeviceRepository {
         value: 0,
         kwh: 0,
         levels: {
-          1: 51,
-          2: 102,
-          3: 153,
-          4: 204,
-          5: 255,
+          1: 75,
+          2: 150,
+          3: 200,
+          4: 255,
         },
         status: false,
         createdAt: admin.firestore.Timestamp.now(),
       };
+      const roomRef = this.db.collection('rooms').doc(deviceDto.roomId);
+     await Promise.all([
+        deviceRef.set(newDevice),
+        roomRef.update({
+          totalDevice: admin.firestore.FieldValue.increment(1),
+        }),
+        deviceRef
+          .collection('energy_stats')
+          .doc(new Date().toISOString().split('T')[0])
+          .set(
+            {
+              date: new Date().toISOString().split('T')[0],
+              kwh: 0,
+              lastUpdated: admin.firestore.Timestamp.now(),
+            },
+            { merge: true },
+          ),
+      ]);
 
-      await deviceRef.set(newDevice);
-
-      const today = new Date().toISOString().split('T')[0];
-
-      await deviceRef.collection('energy_stats').doc(today).set(
-        {
-          date: today,
-          kwh: 0,
-          lastUpdated: admin.firestore.Timestamp.now(),
-        },
-        { merge: true },
-      );
-
+    // 5. Trả về chính Object đó kèm theo ID
       return {
-        success: true,
-        deviceId: deviceRef.id,
+        id: finalId,
+        name: newDevice.name,
+        status: newDevice.status,
+        type: newDevice.type, // Giả sử trong DB đã có trường type
+        kind: 'DEVICE'    // Gán cứng giá trị phân biệt
       };
-
     } catch (error) {
 
       // Nếu là HttpException mình tự throw → giữ nguyên
@@ -205,9 +213,9 @@ export class DeviceRepository {
   }
 
 
-  async update(body: any): Promise<{ success: boolean; error?: string }> {
+  async update(body: any): Promise<boolean> {
     try {
-      const deviceRef = this.db.collection('devices').doc(body.deviceId);
+      const deviceRef = this.db.collection('devices').doc(body.id);
       const deviceSnap = await deviceRef.get();
       if (!deviceSnap.exists) {
         throw new HttpException(
@@ -228,7 +236,7 @@ export class DeviceRepository {
         description: `${deviceSnap.data()?.name} đã được ${body.status ? 'bật với giá trị ' + body.value : 'tắt'} `,
         time: admin.firestore.Timestamp.now(),
       });
-      return { success: true };
+      return true;
     } catch (error) {
       console.log('Error updating device:', error);
       throw new HttpException(

@@ -74,4 +74,8 @@ export class HouseApprovallService {
   async getHouseInfo(houseId: string){
     return this.houseApprovalRepository.getHouseInfo(houseId);
   }
+
+  async getDeviceAndSensorByRoomId(roomId:string){
+    return this.houseApprovalRepository.getDeviceAndSensorByRoomId(roomId)
+  }
 }

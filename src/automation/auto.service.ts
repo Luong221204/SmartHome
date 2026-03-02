@@ -64,15 +64,18 @@ export class AutoService implements OnModuleInit {
     }
   }
   async createAutomation(
-    body: AutomationDto,
-  ): Promise<{ success: boolean; error?: string }> {
-    return await this.repo.create(body);
+    body: any,
+  ): Promise<boolean> {
+    const {id,success} = await this.repo.create(body)
+    this.updateJob(id,body)
+    return success;
   }
 
   async updateAutomation(
-    body: AutomationDto,
-  ): Promise<{ success: boolean; error?: string }> {
+    body: any,
+  ): Promise<boolean> {
     // Implement update logic here, for now we just call create as a placeholder
+    this.updateJob(body.id,body)
     return await this.repo.update(body);
   }
 

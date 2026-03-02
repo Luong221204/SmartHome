@@ -253,18 +253,26 @@ export class HouseApprovalRepository {
   }
 
 
-  async createRoom(body: any) {
-    try {
-      await this.db.collection('rooms').add({
-        ...body,
-        createdAt: new Date(),
-      });
-      return true;
-    } catch (error) {
-      console.error('Error creating room:', error);
-      throw new BadRequestException('Error creating room');
-    }
+async createRoom(body: any) {
+  try {
+    const docRef = await this.db.collection('rooms').add({
+      ...body,
+      totalDevice:0,
+      createdAt: new Date(),
+    });
+
+    // Lấy dữ liệu vừa tạo để trả về
+    const newDoc = await docRef.get();
+    
+    return {
+      id: docRef.id,
+      ...newDoc.data()
+    };
+  } catch (error) {
+    console.error('Error creating room:', error);
+    throw new BadRequestException('Error creating room');
   }
+}
 
   async getRoomsByHouseId(houseId: string) {
     try{
@@ -290,6 +298,49 @@ export class HouseApprovalRepository {
       console.error('Error getting house info by houseId:', error);
       throw new BadRequestException('Error getting house info by houseId');
     }
+  }
+
+  async getDeviceAndSensorByRoomId(roomId:string){
+   try {
+    // 1. Thực hiện gọi song song cả 2 collection để tối ưu tốc độ
+    const [devicesSnap, sensorsSnap] = await Promise.all([
+      this.db.collection('devices').where('roomId', '==', roomId).get(),
+      this.db.collection('sensors').where('roomId', '==', roomId).get()
+    ]);
+
+    // 2. Map dữ liệu từ Devices
+    const devicesList = devicesSnap.docs.map(doc => {
+      const data = doc.data();
+      return {
+          id: doc.id,
+        name: data.name,
+        status: data.status,
+        type: data.type, // Giả sử trong DB đã có trường type
+        kind: 'DEVICE'    // Gán cứng giá trị phân biệt
+      };
+    });
+
+    // 3. Map dữ liệu từ Sensors
+    const sensorsList = sensorsSnap.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.name,
+        status: data.status,
+        type: data.type, // Giả sử trong DB đã có trường type
+        kind: 'SENSOR'    // Gán cứng giá trị phân biệt
+      };
+    });
+
+    // 4. Gộp 2 list lại thành 1
+    const combinedList = [...devicesList, ...sensorsList];
+
+    return combinedList;
+
+  } catch (error) {
+    console.error("Lỗi khi lấy dữ liệu:", error);
+    throw error;
+  }
   }
 
 }

@@ -10,7 +10,7 @@ export class SensorController {
     @Body()
     body: {
       name: string;
-      type: string;
+      kind: string;
       houseId: string;
       roomId: string;
       refferTo: string;

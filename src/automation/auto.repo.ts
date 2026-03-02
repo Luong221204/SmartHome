@@ -49,31 +49,31 @@ export class AutoRepo {
     return notificationRef.id;
   }
 
-  async create(
-    body: AutomationDto,
-  ): Promise<{ success: boolean; error?: string }> {
+  async create(body: any): Promise<{ id: string; success: boolean }> {
     try {
-      await this.db.collection('automations').add({
+      const doc =await this.db.collection('automations').add({
         ...body,
+        control:{
+          cooldownMinutes:3,
+          lastExecuted: admin.firestore.FieldValue.serverTimestamp(),
+        },
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      return { success: true };
+      return {id :doc.id,success:true};
     } catch (error) {
-      console.error('Error creating automation:', error);
-      return { success: false, error: error.message };
+      throw new NotFoundException(error.message);
     }
   }
 
   async update(
-    body: AutomationDto,
-  ): Promise<{ success: boolean; error?: string }> {
+    body: any,
+  ): Promise<boolean> {
     try {
       const docRef = this.db.collection('automations').doc(body.id);
-      await docRef.update(body as UpdateData<any>);
-      return { success: true };
+      await docRef.update(body);
+      return true;
     } catch (error) {
-      console.error('Error updating automation:', error);
-      return { success: false, error: error.message };
+      throw new NotFoundException(error.message);
     }
   }
 

@@ -17,16 +17,15 @@ export class SensorRepository {
 
   async addNewSensor(body: {
     name: string;
-    type: string;
+    kind: string;
     houseId: string;
     roomId: string;
     refferTo: string;
   }): Promise<boolean> {
-    const { name, type, houseId, roomId, refferTo } = body;
-    const sensorId = `${type.toUpperCase()}_${houseId}_${Date.now()}`;
+    const { name,kind, houseId, roomId, refferTo } = body;
+    const sensorId = `${kind.toUpperCase()}_${houseId}_${Date.now()}`;
     const newSensor = {
       name,
-      type,
       houseId,
       roomId,
       refferTo,

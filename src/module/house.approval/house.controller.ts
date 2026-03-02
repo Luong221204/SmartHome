@@ -51,5 +51,9 @@ export class HouseApprovalController {
   async getHouseInfo(@Req() req: any, @Query('houseId') houseId: string) {
     return this.houseApprovallService.getHouseInfo(houseId);
   }
+  @Get('room/staff')
+  async getDeviceAndSensorByRoomId(@Query('roomId') roomId: string) {
+    return await this.houseApprovallService.getDeviceAndSensorByRoomId(roomId)
+  }
 
 }

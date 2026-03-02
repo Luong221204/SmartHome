@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, ParseIntPipe, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, ParseIntPipe, Patch, Post, Put, Query } from "@nestjs/common";
 import { DeviceService } from "./device.service";
 
 
@@ -19,6 +19,7 @@ export class DeviceController {
     return await this.deviceService.createDevice(body);
   }
 
+  
   @Put('update')
   async updateAutomation(
     @Body()

@@ -177,6 +177,7 @@ export class FirebaseService {
       if (fs) {
         fcmTokens.push(...fs);
       }
+      console.log(fs)
   }
    const message: admin.messaging.MulticastMessage = {
       tokens: fcmTokens,

@@ -26,7 +26,7 @@ export class DeviceService {
     type: string;
     houseId: string;
     roomId: string;
-  }): Promise<{ success: boolean; error?: string }> {
+  }): Promise<any> {
     return await this.deviceRepo.createDevice(body);
   }
 
@@ -36,7 +36,7 @@ export class DeviceService {
 
   async updateAutomation(
     body: any,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<boolean> {
     // Implement update logic here, for now we just call create as a placeholder
     return await this.deviceRepo.update(body);
   }

@@ -10,15 +10,15 @@ export class AutoController {
 
   @Post('create')
   async createAutomation(
-    @Body() body: AutomationDto,
-  ): Promise<{ success: boolean; error?: string }> {
+    @Body() body: any,
+  ): Promise<boolean> {
         return this.service.createAutomation(body);
     }
 
    @Put('update')
    async updateAutomation(
-    @Body() body: AutomationDto,
-  ): Promise<{ success: boolean; error?: string }> {
+    @Body() body: any,
+  ): Promise<boolean> {
     return this.service.updateAutomation(body);
     }
 
