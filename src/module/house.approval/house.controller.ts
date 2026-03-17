@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Post, Query, Req } from '@nestjs/common';
 import { HouseApprovallService } from './house.service';
 import { RequestJoinHouseDto } from 'src/notification/dto/requesJoinHouse.dto';
 import { HouseCreateDto } from './house.dto/house.create';
@@ -42,6 +42,11 @@ export class HouseApprovalController {
     return await this.houseApprovallService.createRoom(body);
   }
 
+  @Delete('delete')
+  async deleteRoom(@Query('roomId') r:string){
+    return await this.houseApprovallService.deleteRoom(r)
+  }
+
   @Get('room')
   async getRoomsByHouseId(@Req() req: any, @Query('houseId') houseId: string) {
     return await this.houseApprovallService.getRoomsByHouseId(houseId);
@@ -54,6 +59,16 @@ export class HouseApprovalController {
   @Get('room/staff')
   async getDeviceAndSensorByRoomId(@Query('roomId') roomId: string) {
     return await this.houseApprovallService.getDeviceAndSensorByRoomId(roomId)
+  }
+
+    @Get('staff')
+  async getDeviceAndSensorByHouseId(@Query('houseId') houseId: string) {
+    return await this.houseApprovallService.getDeviceAndSensorByHouseId(houseId)
+  }
+
+     @Post('gpio')
+  async initializeGatewayPins(@Query('houseId') houseId: string) {
+    return await this.houseApprovallService.initializeGatewayPins(houseId)
   }
 
 }

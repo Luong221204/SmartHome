@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { FcmTokenDto } from "./dto/fcmToken.dto";
 import * as admin from 'firebase-admin';
 import { Home } from 'src/dtos/dtos.home';
@@ -37,12 +37,12 @@ export class NotificationRepository {
 
   async deleteFcmToken(
     f: FcmTokenDto,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<boolean> {
     const userRef = this.db.collection('users').doc(f.userId);
     const snap = await userRef.get();
 
     if (!snap.exists) {
-      return { success: false, error: 'Tài khoản không tồn tại' };
+      throw new BadRequestException("Tài khoản không tồn tại");
     }
 
     try {
@@ -50,10 +50,10 @@ export class NotificationRepository {
         fcmTokens: admin.firestore.FieldValue.arrayRemove(f.fcmToken),
       });
 
-      return { success: true };
+      return true;
     } catch (e) {
       console.error('Update FCM Token error:', e);
-      return { success: false, error: 'Lỗi khi cập nhật FCM Token' };
+      throw new BadRequestException(e);
     }
   }
 
@@ -65,17 +65,41 @@ export class NotificationRepository {
   }
 
   async getNotifications(userId: string): Promise<any[]> {
-    const notifications: any[] = [];
-    const snap = await this.db
-      .collection('notification')
-      .where('userId', '==', userId)
-      .orderBy('createdAt', 'desc')
-      .get();
-    snap.forEach((doc) => {
-      notifications.push(doc.data());
-    });
-    return notifications;
+  // 1. Lấy danh sách liên kết từ notification_user
+  const snap = await this.db
+    .collection('notification_user')
+    .where('userId', '==', userId)
+    .get();
+
+  if (snap.empty) {
+    return [];
   }
+
+  // 2. Tạo danh sách các Promise để lấy chi tiết từng thông báo
+  const detailPromises = snap.docs.map(async (userDoc) => {
+    const userData = userDoc.data();
+    const notificationId = userData.notificationId;
+
+    // Truy vấn vào collection 'notification' bằng ID
+    const notifDoc = await this.db.collection('notification').doc(notificationId).get();
+
+    if (notifDoc.exists) {
+      return {
+        id: notifDoc.id,
+        ...notifDoc.data(),
+        // Bạn có thể gộp thêm thông tin từ notification_user nếu cần (ví dụ: ngày nhận, trạng thái đã đọc)
+        ...userData 
+      };
+    }
+    return null;
+  });
+
+  // 3. Chờ tất cả các truy vấn chi tiết hoàn tất
+  const results = await Promise.all(detailPromises);
+
+  // 4. Lọc bỏ các giá trị null (trường hợp id tồn tại trong notification_user nhưng ko có trong notification)
+  return results.filter(notif => notif !== null);
+}
 
   async markAsRead(notificationId: string): Promise<{ success: boolean; error?: string }> {
     try {

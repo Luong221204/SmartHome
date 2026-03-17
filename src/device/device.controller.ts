@@ -24,8 +24,9 @@ export class DeviceController {
   async updateAutomation(
     @Body()
     body: any,
+    @Query('how') how:string
   ) {
-    return await this.deviceService.updateAutomation(body);
+    return await this.deviceService.updateAutomation(body,how);
   }
 
   @Get('logs')

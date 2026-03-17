@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { FirestoreService } from 'src/home/firestore.service';
 import * as admin from 'firebase-admin';
 import { last } from 'rxjs';
@@ -24,11 +24,13 @@ export class SensorRepository {
   }): Promise<boolean> {
     const { name,kind, houseId, roomId, refferTo } = body;
     const sensorId = `${kind.toUpperCase()}_${houseId}_${Date.now()}`;
+    const gipo = await this.allocateAndUseDevicePin(houseId,sensorId)
     const newSensor = {
       name,
       houseId,
       roomId,
       refferTo,
+      gipo,
       status: true,
       data: {},
       current: {},
@@ -36,19 +38,61 @@ export class SensorRepository {
     };
     const docRef = this.db.collection('sensors').doc(sensorId);
     await docRef.set(newSensor);
+    await this.db.collection("home").doc(houseId).update({
+      totalDevice:admin.firestore.FieldValue.increment(1),
+    })
     return true;
+  }
+
+   async allocateAndUseDevicePin(gatewayId: string, sensorId: string) {
+    const gpiosRef = this.db.collection('gpios');
+  
+    return await this.db.runTransaction(async (transaction) => {
+      // 1. Lấy tất cả chân trống của Gateway
+      const snapshot = await transaction.get(
+        gpiosRef.where('gatewayId', '==', gatewayId).where('status', '==', 'AVAILABLE')
+      );
+  
+      if (snapshot.empty) throw new Error('Hết chân GPIO trống!');
+  
+      const availablePins = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+  
+      // 2. Logic lọc chân cho Device
+      // 2. Logic lọc chân cho Sensor
+    const chosenPin = availablePins.find(p => p.capabilities.includes('ANALOG_IN')) 
+                 || availablePins.find(p => p.capabilities.includes('DIGITAL_IN'));
+      if (!chosenPin) throw new Error('Không có chân phù hợp cho Device!');
+  
+      // 3. Cập nhật lại bản ghi GPIO
+      const targetPinRef = gpiosRef.doc(chosenPin.id);
+      transaction.update(targetPinRef, {
+        status: 'USED',
+        referTo: sensorId,
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+      });
+  
+      return chosenPin.pinNumber;
+    });
   }
 
   async deleteSensor(
     sensorId: string,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<boolean> {
     const docRef = this.db.collection('sensors').doc(sensorId);
+
     const docSnap = await docRef.get();
-    if (!docSnap.exists) {
-      return { success: false, error: 'Sensor not found' };
+     if (!docSnap.exists) {
+      throw new BadRequestException("ko tồn tại")
     }
+    const gpioDocId = `${docSnap.data()?.houseId}_${docSnap.data()?.gipo}`;
+    const gpioRef = this.db.collection('gpios').doc(gpioDocId);
+    await gpioRef.update({
+      status: 'AVAILABLE',
+      referTo: null,
+      lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+    })
     await docRef.delete();
-    return { success: true };
+    return true;
   }
 
   async saveSensorData(

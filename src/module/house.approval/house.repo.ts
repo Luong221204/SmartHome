@@ -6,6 +6,7 @@ import { HouseCreateDto } from './house.dto/house.create';
 import { HouseUpdateDto } from './house.dto/house.update';
 import { HousePendingDto } from './house.dto/house.approval';
 import { FcmTokenDto } from 'src/notification/dto/fcmToken.dto';
+import e from 'express';
 @Injectable()
 export class HouseApprovalRepository {
   public db: FirebaseFirestore.Firestore;
@@ -253,29 +254,31 @@ export class HouseApprovalRepository {
   }
 
 
-async createRoom(body: any) {
-  try {
-    const docRef = await this.db.collection('rooms').add({
-      ...body,
-      totalDevice:0,
-      createdAt: new Date(),
-    });
+  async createRoom(body: any) {
+    try {
+      const docRef = await this.db.collection('rooms').add({
+        ...body,
+        totalDevice: 0,
+        createdAt: new Date(),
+      });
 
-    // Lấy dữ liệu vừa tạo để trả về
-    const newDoc = await docRef.get();
-    
-    return {
-      id: docRef.id,
-      ...newDoc.data()
-    };
-  } catch (error) {
-    console.error('Error creating room:', error);
-    throw new BadRequestException('Error creating room');
+      // Lấy dữ liệu vừa tạo để trả về
+      const newDoc = await docRef.get();
+      await this.db.collection("home").doc(body.houseId).update({
+        totalRoom: admin.firestore.FieldValue.increment(1),
+      })
+      return {
+        id: docRef.id,
+        ...newDoc.data()
+      };
+    } catch (error) {
+      console.error('Error creating room:', error);
+      throw new BadRequestException('Error creating room');
+    }
   }
-}
 
   async getRoomsByHouseId(houseId: string) {
-    try{
+    try {
       const snapshot = await this.db
         .collection('rooms')
         .where('houseId', '==', houseId)
@@ -288,7 +291,7 @@ async createRoom(body: any) {
       console.error('Error getting rooms by houseId:', error);
       throw new BadRequestException('Error getting rooms by houseId');
     }
-  }  
+  }
 
   async getHouseInfo(houseId: string) {
     try {
@@ -300,47 +303,188 @@ async createRoom(body: any) {
     }
   }
 
-  async getDeviceAndSensorByRoomId(roomId:string){
-   try {
-    // 1. Thực hiện gọi song song cả 2 collection để tối ưu tốc độ
-    const [devicesSnap, sensorsSnap] = await Promise.all([
-      this.db.collection('devices').where('roomId', '==', roomId).get(),
-      this.db.collection('sensors').where('roomId', '==', roomId).get()
-    ]);
+  async getDeviceAndSensorByRoomId(roomId: string) {
+    try {
+      // 1. Thực hiện gọi song song cả 2 collection để tối ưu tốc độ
+      const [devicesSnap, sensorsSnap] = await Promise.all([
+        this.db.collection('devices').where('roomId', '==', roomId).get(),
+        this.db.collection('sensors').where('roomId', '==', roomId).get()
+      ]);
 
-    // 2. Map dữ liệu từ Devices
-    const devicesList = devicesSnap.docs.map(doc => {
-      const data = doc.data();
-      return {
+      // 2. Map dữ liệu từ Devices
+      const devicesList = devicesSnap.docs.map(doc => {
+        const data = doc.data();
+        return {
           id: doc.id,
-        name: data.name,
-        status: data.status,
-        type: data.type, // Giả sử trong DB đã có trường type
-        kind: 'DEVICE'    // Gán cứng giá trị phân biệt
-      };
+          roomId: data.roomId,
+          gpio: data.gipo,
+          name: data.name,
+          status: data.status,
+          value: data.value,
+          type: data.type, // Giả sử trong DB đã có trường type
+          kind: 'DEVICE'    // Gán cứng giá trị phân biệt
+        };
+      });
+
+      // 3. Map dữ liệu từ Sensors
+      const sensorsList = sensorsSnap.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name,
+          gpio: data.gipo,
+          status: data.status,
+          type: data.type, // Giả sử trong DB đã có trường type
+          kind: 'SENSOR'    // Gán cứng giá trị phân biệt
+        };
+      });
+
+      // 4. Gộp 2 list lại thành 1
+      const combinedList = [...devicesList, ...sensorsList];
+
+      return combinedList;
+
+    } catch (error) {
+      console.error("Lỗi khi lấy dữ liệu:", error);
+      throw error;
+    }
+  }
+
+  async getDeviceAndSensorByHouseId(houseId: string) {
+    try {
+      // 1. Thực hiện gọi song song cả 2 collection để tối ưu tốc độ
+      const [devicesSnap, sensorsSnap] = await Promise.all([
+        this.db.collection('devices').where('houseId', '==', houseId).get(),
+        this.db.collection('sensors').where('houseId', '==', houseId).get(),
+      ]);
+      const devicesData = devicesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const sensorsData = sensorsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // 2. Lấy danh sách roomId không trùng lặp từ cả 2 mảng
+      const allRoomIds = [
+        ...new Set([
+          ...devicesData.map((d: any) => d.roomId),
+          ...sensorsData.map((s: any) => s.roomId)
+        ])
+      ].filter(id => !!id); // Loại bỏ các giá trị null/undefined nếu có
+
+      // 3. Truy vấn collection 'rooms' để lấy roomName
+      let roomsMap: Record<string, string> = {};
+      if (allRoomIds.length > 0) {
+        // Lưu ý: Firestore 'in' query giới hạn tối đa 30 item mỗi lần gọi
+        const roomsSnap = await this.db.collection('rooms')
+          .where('__name__', 'in', allRoomIds)
+          .get();
+
+        roomsSnap.forEach(doc => {
+          roomsMap[doc.id] = doc.data().name; // Giả sử field chứa tên phòng là 'name'
+        });
+      }
+
+      // 2. Map dữ liệu từ Devices
+      const devicesList = devicesSnap.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name,
+          status: data.status,
+          value: data.value,
+          roomId: data.roomId,
+          roomName: roomsMap[data.roomId] || 'Unknown Room', // Lấy tên từ Map
+          gipo: data.gipo,
+          type: data.type, // Giả sử trong DB đã có trường type
+          kind: 'DEVICE', // Gán cứng giá trị phân biệt
+        };
+      });
+
+      // 3. Map dữ liệu từ Sensors
+      const sensorsList = sensorsSnap.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name,
+          status: data.status,
+          gipo: data.gipo,
+          roomId: data.roomId,
+          roomName: roomsMap[data.roomId] || 'Unknown Room', // Lấy tên từ Map
+          type: data.type, // Giả sử trong DB đã có trường type
+          kind: 'SENSOR'    // Gán cứng giá trị phân biệt
+        };
+      });
+
+      // 4. Gộp 2 list lại thành 1
+      const combinedList = [...devicesList, ...sensorsList];
+
+      return combinedList;
+
+    } catch (error) {
+      console.error("Lỗi khi lấy dữ liệu:", error);
+      throw error;
+    }
+  }
+
+
+  async deleteRoom(r: string): Promise<boolean> {
+    try {
+      const roomRef = this.db.collection('rooms').doc(r)
+      await this.db
+        .collection('home')
+        .doc((await roomRef.get()).data()?.houseId)
+        .update({
+          totalDevice: admin.firestore.FieldValue.increment(-1),
+        })
+      await roomRef.delete()
+
+      return true;
+    } catch (error) {
+      throw new BadRequestException(e)
+    }
+  }
+
+  async initializeGatewayPins(gatewayId: string) {
+    const gpiosRef = this.db.collection('gpios');
+    const batch = this.db.batch(); // Dùng Batch để ghi nhiều bản ghi cùng lúc cho nhanh
+
+    // Danh sách các chân "vàng" và khả năng của chúng
+    const standardPins = [
+      // Nhóm Digital chuẩn
+      { pin: 4, caps: ['DIGITAL_IN', 'DIGITAL_OUT', 'PWM', 'TOUCH'] },
+      { pin: 5, caps: ['DIGITAL_IN', 'DIGITAL_OUT', 'PWM'] },
+      { pin: 13, caps: ['DIGITAL_IN', 'DIGITAL_OUT', 'PWM', 'TOUCH', 'HSPI_ID'] },
+      { pin: 14, caps: ['DIGITAL_IN', 'DIGITAL_OUT', 'PWM', 'TOUCH', 'HSPI_CLK'] },
+      { pin: 16, caps: ['DIGITAL_IN', 'DIGITAL_OUT', 'PWM'] },
+      { pin: 17, caps: ['DIGITAL_IN', 'DIGITAL_OUT', 'PWM'] },
+      { pin: 27, caps: ['DIGITAL_IN', 'DIGITAL_OUT', 'PWM', 'TOUCH'] },
+
+      // Nhóm Giao tiếp (Communication)
+      { pin: 18, caps: ['DIGITAL_IN', 'DIGITAL_OUT', 'SPI_SCK'] },
+      { pin: 19, caps: ['DIGITAL_IN', 'DIGITAL_OUT', 'SPI_MISO'] },
+      { pin: 21, caps: ['DIGITAL_IN', 'DIGITAL_OUT', 'I2C_SDA'] },
+      { pin: 22, caps: ['DIGITAL_IN', 'DIGITAL_OUT', 'I2C_SCL'] },
+      { pin: 23, caps: ['DIGITAL_IN', 'DIGITAL_OUT', 'SPI_MOSI'] },
+
+      // Nhóm Analog & Năng lực cao
+      { pin: 25, caps: ['DIGITAL_IN', 'DIGITAL_OUT', 'ANALOG_IN', 'DAC'] },
+      { pin: 26, caps: ['DIGITAL_IN', 'DIGITAL_OUT', 'ANALOG_IN', 'DAC'] },
+      { pin: 32, caps: ['DIGITAL_IN', 'ANALOG_IN', 'TOUCH'] },
+      { pin: 33, caps: ['DIGITAL_IN', 'ANALOG_IN', 'TOUCH'] },
+    ];
+
+    standardPins.forEach((item) => {
+      // ID document là kết hợp giữa Gateway và Số chân để dễ quản lý
+      const docId = `${gatewayId}_${item.pin}`;
+      const docRef = gpiosRef.doc(docId);
+
+      batch.set(docRef, {
+        gatewayId: gatewayId,
+        pinNumber: item.pin,
+        capabilities: item.caps,
+        status: 'AVAILABLE', // Mặc định là trống
+        referTo: null,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
     });
 
-    // 3. Map dữ liệu từ Sensors
-    const sensorsList = sensorsSnap.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        name: data.name,
-        status: data.status,
-        type: data.type, // Giả sử trong DB đã có trường type
-        kind: 'SENSOR'    // Gán cứng giá trị phân biệt
-      };
-    });
-
-    // 4. Gộp 2 list lại thành 1
-    const combinedList = [...devicesList, ...sensorsList];
-
-    return combinedList;
-
-  } catch (error) {
-    console.error("Lỗi khi lấy dữ liệu:", error);
-    throw error;
+    await batch.commit();
+    return { message: `Đã khởi tạo ${standardPins.length} chân cho Gateway ${gatewayId}` };
   }
-  }
-
 }

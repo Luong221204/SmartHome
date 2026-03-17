@@ -31,7 +31,7 @@ export class EspController {
   }
 
   @Get('notifications')
-  async getNotifications(@Req() req,@Query('userId') userId: string) {
+  async getNotifications(@Query('userId') userId: string) {
     return await this.notificationRepository.getNotifications(userId);
   }
 

@@ -39,12 +39,9 @@ export class SensorController {
 
   @Delete('delete')
   async deleteSensor(
-    @Body()
-    body: {
-      sensorId: string;
-    },
+    @Query('id') id:string
   ) {
-    return await this.sensorService.deleteSensor(body.sensorId);
+    return await this.sensorService.deleteSensor(id);
   }
   
   

@@ -36,15 +36,18 @@ export class DeviceService {
 
   async updateAutomation(
     body: any,
-  ): Promise<boolean> {
+    how:string
+  ) {
     // Implement update logic here, for now we just call create as a placeholder
-    return await this.deviceRepo.update(body);
+    console.log('check ok');
+
+    return await this.deviceRepo.update(body,how);
   }
 
   @OnEvent('mqtt.devices')
   async handleDataPower(payload: any) {
-    const { deviceId, watt, status } = payload;
-    await this.deviceRepo.handlePowerData(deviceId, watt, status);
+    const { id, watt, status } = payload;
+    await this.deviceRepo.handlePowerData(id, watt, status);
   }
 
 

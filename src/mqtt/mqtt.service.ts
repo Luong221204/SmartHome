@@ -10,7 +10,8 @@ export class MqttBrokerService implements OnModuleInit, OnModuleDestroy {
   private aedesInstance: any;
   private server: net.Server;
 
-  constructor(private eventEmitter: EventEmitter2) {}
+  constructor(private eventEmitter: EventEmitter2,
+  ) {}
 
   onModuleInit() {
     try {
@@ -27,7 +28,7 @@ export class MqttBrokerService implements OnModuleInit, OnModuleDestroy {
       // Trong phần this.aedesInstance.on('publish', ...)
       this.aedesInstance.on('publish', (packet, client) => {
         if (client) {
-          const topic = packet.topic; // Ví dụ: "sensor/temp" hoặc "device/status"
+          const topic = packet.topic; // Ví dụ: "sensor/id" hoặc "device/id"
           const data = packet.payload.toString();
 
           // Phát sự kiện dựa trên cấp đầu tiên của topic
@@ -57,7 +58,7 @@ export class MqttBrokerService implements OnModuleInit, OnModuleDestroy {
             this.aedesInstance.publish({
                 topic,
                 payload: Buffer.from(typeof payload === 'string' ? payload : JSON.stringify(payload)),
-                qos: 0,
+                qos: 1,
                 retain: false,
                 cmd: 'publish',
                 dup: false,

@@ -7,6 +7,7 @@ import { FirebaseService } from "src/notification/firebase.service";
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
 import { MqttBrokerService } from "src/mqtt/mqtt.service";
+import { MyGateway } from "src/gateway/gateway";
 
 @Injectable()
 export class AutoService implements OnModuleInit {
@@ -14,9 +15,10 @@ export class AutoService implements OnModuleInit {
     private readonly repo: AutoRepo,
     private readonly deviceService: DeviceService,
     private readonly firebaseService: FirebaseService,
-    private mqttService: MqttBrokerService, 
+    private mqttService: MqttBrokerService,
+    private gateway: MyGateway,
     private schedulerRegistry: SchedulerRegistry,
-  ) {}
+  ) { }
   async onModuleInit() {
     const snapshot = await this.repo.loadAllSchedulers();
     snapshot.forEach((doc) => {
@@ -34,13 +36,15 @@ export class AutoService implements OnModuleInit {
       async () => {
         console.log(`[Scheduler] Thực thi kịch bản: ${data.name}`);
         const notificationId = await this.repo.saveNotifcation(data);
-        void this.firebaseService.sendAutomationAlertNotification(
+        await this.firebaseService.sendAutomationAlertNotification(
           data.name,
           'Thực thi hành động theo lịch trình',
           data.houseId,
           notificationId,
         );
         this.executeAction(data.action, data.houseId);
+        void this.deviceService.updateAutomation(data.action, 'SCHEDULE');
+
         await this.repo.executeScheduleAction(automationId, data);
       },
       null,
@@ -66,8 +70,10 @@ export class AutoService implements OnModuleInit {
   async createAutomation(
     body: any,
   ): Promise<boolean> {
-    const {id,success} = await this.repo.create(body)
-    this.updateJob(id,body)
+    const { id, success } = await this.repo.create(body)
+    if (body.type == 'SCHEDULE') {
+      this.updateJob(id, body);
+    }
     return success;
   }
 
@@ -75,7 +81,7 @@ export class AutoService implements OnModuleInit {
     body: any,
   ): Promise<boolean> {
     // Implement update logic here, for now we just call create as a placeholder
-    this.updateJob(body.id,body)
+    this.updateJob(body.id, body)
     return await this.repo.update(body);
   }
 
@@ -89,19 +95,20 @@ export class AutoService implements OnModuleInit {
 
   async implementAutomationLogic(
     houseId: string,
+    roomId: string,
     sensorId: string,
     current: Record<string, number>,
   ) {
     console.log('check điều kiện');
     const result = await this.repo.implementAutomationLogic(
       houseId,
+      roomId,
       sensorId,
       current,
     );
-    result.forEach((value, index) => {
-      console.log(index, value);
+    this.gateway.emitSensorData(sensorId, current);
+    result.forEach(async (value, index) => {
       const condition = value.condition;
-
       if (condition.sensorId !== sensorId) return;
 
       console.log('Điều kiện cần kiểm tra:', current[condition.property]);
@@ -114,24 +121,58 @@ export class AutoService implements OnModuleInit {
         const now = new Date();
         const lastTime = value.control.lastExecuted.toDate();
 
-// đổi cooldown phút → milliseconds
+        // đổi cooldown phút → milliseconds
         const cooldownMs = value.control.cooldownMinutes * 60 * 1000;
 
         const isExpired = now.getTime() > lastTime.getTime() + cooldownMs;
         if (isExpired) {
+          await this.repo.update({ ...value, isExecuting: true });
+
           void this.repo.updateLastExecuted(value.id);
           console.log(
             'thoa man dieu kien, thuc hien hanh dong',
             value.action.deviceId,
           );
-          void this.deviceService.updateAutomation(value.action);
+          // 1. Tạo đối tượng chứa dữ liệu
+          const deviceUpdate = {
+            id: value.action.deviceId,
+            value: value.action.value,
+            status: value.action.status,
+            kind: 'DEVICE'
+          };
+
+          // 2. Publish qua MQTT (như bạn đã làm)
+          this.mqttService.publish("devices", deviceUpdate);
+
+          // 3. Cập nhật automation và lấy roomId
+          const r = await this.deviceService.updateAutomation(value.action, 'AUTO');
+
+          // 4. Chuẩn bị mảng JSON và chuyển thành chuỗi để emit qua Gateway
+          // Chúng ta bỏ deviceUpdate vào trong mảng [ ]
+          const dataPayload = JSON.stringify([deviceUpdate]);
+
+          this.gateway.emitRoomData(r.roomId, dataPayload);
           console.log('Điều kiện tự động thỏa mãn');
+          const notificationId = await this.repo.saveNotifcation(value)
           void this.firebaseService.sendAutomationAlertNotification(
             value.name,
             'Điều kiện tự động thỏa mãn',
             houseId,
+            notificationId
           );
           this.executeAction(value.action, houseId);
+        }
+      } else {
+        if (value.isExecuting) {
+          await this.repo.update({ ...value, isExecuting: false });
+          await this.deviceService.updateAutomation(
+            {
+              id: value.action.deviceId,
+              status: false,
+              value: value.action.value
+            }
+            , 'SYSTEM',
+          );
         }
       }
     });

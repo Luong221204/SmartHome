@@ -92,4 +92,5 @@ export class AutomationDto {
   houseId: string;
   type: string;
   isEnabled: boolean;
+  isExecuting: boolean;
 }

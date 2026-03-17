@@ -15,7 +15,13 @@ const payloadObj = {
     humidity: humidity
   }
 };
+// Khi gửi MQTT mới stringify
+const payload = JSON.stringify(payloadObj);
+console.log('Gửi dữ liệu:', payload);
 
+        client.publish('sensors/temp', payload);
+    }, 5000);
+});
 // Destructure từ object
 const { sensorId, current } = payloadObj;
 

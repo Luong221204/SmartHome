@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import { BadRequestException, HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { FirestoreService } from "src/home/firestore.service";
 import * as admin from 'firebase-admin';
 import { AutomationDeviceDto } from "./dto/device.dto";
@@ -40,8 +40,33 @@ export class DeviceRepository {
   }
   async deleteDevice(deviceId: string) {
     try {
-      await this.db.collection('devices').doc(deviceId).delete();
-      return { success: true };
+      const docRef = this.db.collection('devices').doc(deviceId);
+
+      const docSnap = await docRef.get();
+      if (!docSnap.exists) {
+        throw new BadRequestException("ko tồn tại")
+      }
+      const gpioDocId = `${docSnap.data()?.houseId}_${docSnap.data()?.gipo}`;
+      const gpioRef = this.db.collection('gpios').doc(gpioDocId);
+      await gpioRef.update({
+        status: 'AVAILABLE',
+        referTo: null,
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+      })
+      await docRef.delete();
+       const roomRef = this.db.collection('rooms').doc(docSnap.data()?.roomId);
+      await Promise.all([
+        roomRef.update({
+          totalDevice: admin.firestore.FieldValue.increment(-1),
+        }),
+        this.db
+          .collection('home')
+          .doc(docSnap.data()?.houseId)
+          .update({
+            totalDevice: admin.firestore.FieldValue.increment(-1),
+          })
+      ]);
+      return true;
 
     } catch (error) {
       throw new HttpException(
@@ -78,6 +103,7 @@ export class DeviceRepository {
       const nextNumber = snapshot.size + 1;
 
       const finalId = `${type.toUpperCase()}_${nextNumber}`;
+      const gipo = await this.allocateAndUseDevicePin(houseId, finalId);
       const deviceRef = this.db.collection('devices').doc(finalId);
 
       // 2. Check nếu ID đã tồn tại (tránh ghi đè)
@@ -94,6 +120,7 @@ export class DeviceRepository {
         type,
         houseId,
         roomId,
+        gipo,
         value: 0,
         kwh: 0,
         levels: {
@@ -106,11 +133,12 @@ export class DeviceRepository {
         createdAt: admin.firestore.Timestamp.now(),
       };
       const roomRef = this.db.collection('rooms').doc(deviceDto.roomId);
-     await Promise.all([
+      await Promise.all([
         deviceRef.set(newDevice),
         roomRef.update({
           totalDevice: admin.firestore.FieldValue.increment(1),
         }),
+
         deviceRef
           .collection('energy_stats')
           .doc(new Date().toISOString().split('T')[0])
@@ -122,9 +150,16 @@ export class DeviceRepository {
             },
             { merge: true },
           ),
+        deviceRef.collection('activity_logs'),
+        this.db
+          .collection('home')
+          .doc(houseId)
+          .update({
+            totalDevice: admin.firestore.FieldValue.increment(1),
+          })
       ]);
 
-    // 5. Trả về chính Object đó kèm theo ID
+      // 5. Trả về chính Object đó kèm theo ID
       return {
         id: finalId,
         name: newDevice.name,
@@ -164,6 +199,38 @@ export class DeviceRepository {
         HttpStatus.INTERNAL_SERVER_ERROR
       );
     }
+  }
+  async allocateAndUseDevicePin(gatewayId: string, deviceId: string) {
+    const gpiosRef = this.db.collection('gpios');
+
+    return await this.db.runTransaction(async (transaction) => {
+      // 1. Lấy tất cả chân trống của Gateway
+      const snapshot = await transaction.get(
+        gpiosRef.where('gatewayId', '==', gatewayId).where('status', '==', 'AVAILABLE')
+      );
+
+      if (snapshot.empty) throw new Error('Hết chân GPIO trống!');
+
+      const availablePins = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+
+      // 2. Logic lọc chân cho Device
+      const chosenPin = availablePins.find(p =>
+        (p.capabilities.includes('DIGITAL_OUT') || p.capabilities.includes('PWM')) &&
+        !p.capabilities.includes('DIGITAL_IN')
+      ) || availablePins.find(p => p.capabilities.includes('DIGITAL_OUT') || p.capabilities.includes('PWM'));
+
+      if (!chosenPin) throw new Error('Không có chân phù hợp cho Device!');
+
+      // 3. Cập nhật lại bản ghi GPIO
+      const targetPinRef = gpiosRef.doc(chosenPin.id);
+      transaction.update(targetPinRef, {
+        status: 'USED',
+        referTo: deviceId,
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      return chosenPin.pinNumber;
+    });
   }
 
   async getDeviceDetail(deviceId: string) {
@@ -212,16 +279,20 @@ export class DeviceRepository {
     }));
   }
 
-
-  async update(body: any): Promise<boolean> {
+  async update(
+    body: any,
+    how: string,
+  ): Promise<{ success: boolean; roomId: string }> {
     try {
-      const deviceRef = this.db.collection('devices').doc(body.id);
+      const deviceRef = this.db
+        .collection('devices')
+        .doc(body.id || body.deviceId);
       const deviceSnap = await deviceRef.get();
       if (!deviceSnap.exists) {
         throw new HttpException(
           { message: 'Device not found' },
           HttpStatus.NOT_FOUND,
-      );
+        );
       }
       await deviceRef.update({
         status: body.status,
@@ -230,17 +301,24 @@ export class DeviceRepository {
       const deviceRef2 = this.db
         .collection('devices')
         .doc(body.deviceId).collection('activity_logs').doc();
-      await deviceRef2.set({
-        status: body.status,
-        value: body.value,
-        description: `${deviceSnap.data()?.name} đã được ${body.status ? 'bật với giá trị ' + body.value : 'tắt'} `,
-        time: admin.firestore.Timestamp.now(),
-      });
-      return true;
+      if (how.length > 0) {
+        await deviceRef2.set({
+          status: body.status,
+          value: body.value,
+          description: `${deviceSnap.data()?.name} đã được ${body.status ? 'bật với giá trị ' + body.value : 'tắt'} `,
+          time: admin.firestore.Timestamp.now(),
+          type: how,
+        });
+      }
+
+      return {
+        success: true,
+        roomId: deviceSnap.data()?.roomId,
+      };
     } catch (error) {
       console.log('Error updating device:', error);
       throw new HttpException(
-      { message: error.message },
+        { message: error.message },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

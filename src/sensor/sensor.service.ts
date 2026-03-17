@@ -22,7 +22,7 @@ export class SensorService {
 
   async deleteSensor(
     sensorId: string,
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<boolean> {
     return this.sensorRepository.deleteSensor(sensorId);
   }
 
@@ -37,21 +37,22 @@ export class SensorService {
     );
     await this.autoService.implementAutomationLogic(
       houseId,
+      result.roomId,
       result.sensorId,
       result.current,
     );
   }
 
 
-handleSensorData(payload):{sensorId: string, current: Record<string, number>} {
+handleSensorData(payload):{sensorId: string, roomId:string,current: Record<string, number>} {
   
-  const { sensorId, current } = JSON.parse(payload);
+  const { sensorId, current,roomId } = JSON.parse(payload);
 
    // Chuyển sang Map đã chuẩn hóa số
   const currentMap = new Map<string, number>(
     Object.entries(current).map(([key, value]) => [key, parseFloat(value as string)])
   );
-  return { sensorId, current: Object.fromEntries(currentMap) };
+    return { sensorId, roomId, current: Object.fromEntries(currentMap) };
 }
 
  async getSensorsByRoomId(roomId: string) {

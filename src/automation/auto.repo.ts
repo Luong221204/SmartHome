@@ -28,6 +28,7 @@ export class AutoRepo {
     const batch = this.db.batch();
     const now = admin.firestore.Timestamp.now();
 
+    
     // 1. Cập nhật thiết bị
     const deviceRef = this.db.collection('devices').doc(data.action.deviceId);
     batch.update(deviceRef, {
@@ -152,13 +153,14 @@ export class AutoRepo {
 
   async implementAutomationLogic(
     houseId: string,
+    roomId:string,
     sensorId: string,
     value: Record<string, number>
   ): Promise<AutomationDto[]> {
     const snapshot = await this.db
       .collection('automations')
-      .where('houseId', '==', houseId)
-      .where('type', '==','SENSOR')
+      .where('type', '==', 'AUTO')
+      .where('condition.sensorId', '==', sensorId)
       .get();
 
     return snapshot.docs.map((doc) => ({

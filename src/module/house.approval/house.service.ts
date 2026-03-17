@@ -78,4 +78,15 @@ export class HouseApprovallService {
   async getDeviceAndSensorByRoomId(roomId:string){
     return this.houseApprovalRepository.getDeviceAndSensorByRoomId(roomId)
   }
+
+  async getDeviceAndSensorByHouseId(houseId:string){
+    return this.houseApprovalRepository.getDeviceAndSensorByHouseId(houseId)
+  }
+  async deleteRoom(r:string){
+    return await this.houseApprovalRepository.deleteRoom(r)
+  }
+
+  async initializeGatewayPins(gatewayId:string){
+    return await this.houseApprovalRepository.initializeGatewayPins(gatewayId)
+  }
 }
